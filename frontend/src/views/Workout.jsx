@@ -10,6 +10,7 @@ import { t } from '../lib/i18n.js'
 import { api } from '../lib/api.js'
 import Media from '../components/Media.jsx'
 import { startFlow, exercisePicker, exConfigSheet, exerciseDetailSheet, topWeightSheet, finishWorkout, workoutCompleteSheet, confirmSheet } from '../sheets.jsx'
+import { openChatSheet } from '../components/ChatSheet.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Check, NumberField } from '../components/ui.jsx'
 import { nextPrescription, applyPrescription } from '../lib/progression.js'
@@ -54,8 +55,9 @@ function Elapsed({ start }) {
 }
 
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
-function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemoveSet, onStartTimed }) {
+function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemoveSet, onStartTimed, onSwapEx }) {
   const S = useStore(s => s.S)
+  const isClient = useStore(s => s.isClient())
   const working = useUI(s => s.work)
   const entry = S.active.entries[entryIdx]
   const ex = exOr(entry.id)
@@ -102,9 +104,32 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
     <Media ex={ex} key={entry.id} compact={compact} minimizable />
     <div className="row between" style={{ marginBottom: 6 }}>
       <div style={{ fontSize: compact ? 17 : 20, fontWeight: 600, letterSpacing: '-.02em', textTransform: 'capitalize', lineHeight: 1.2 }}>{ex.n}</div>
-      <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
+      <div className="row" style={{ gap: 6 }}>
+        <button
+          className="iconbtn"
+          title={t('Sostituisci esercizio (es. macchinario occupato)')}
+          aria-label={t('Sostituisci esercizio')}
+          style={{ width: 34, height: 34, color: 'var(--acc)', background: 'color-mix(in srgb,var(--acc) 14%,transparent)', borderRadius: 9 }}
+          onClick={() => onSwapEx && onSwapEx(entryIdx)}
+        >
+          <Icon name="shuffle" />
+        </button>
+        <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
+      </div>
     </div>
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+      {entry.swapped && (
+        <span className="tag" style={{ background: 'color-mix(in srgb,var(--acc) 20%,transparent)', color: 'var(--acc)' }}>
+          <Icon name="shuffle" style={{ fontSize: 12, marginRight: 3 }} />
+          {t('Sostituito')} ({entry.swapped.fromName})
+        </span>
+      )}
+      {entry.addedInSession && (
+        <span className="tag" style={{ background: 'color-mix(in srgb,var(--orange) 20%,transparent)', color: 'var(--orange)' }}>
+          <Icon name="plus" style={{ fontSize: 12, marginRight: 3 }} />
+          {t('Complementare')}
+        </span>
+      )}
       {cardio && <span className="tag acc"><Icon name="figureRun" />{t('Cardio')}</span>}
       {(ex.tg || ex.bp) && <span className="tag">{t(ex.tg || ex.bp)}</span>}
       {ex.eq && <span className="tag">{t(ex.eq)}</span>}
@@ -130,9 +155,19 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
         <Check checked={s.done} onChange={() => onToggle(i)} />
       </div>)}
       <div style={{ height: 8 }} />
-      <div className="row">
-        <Button size="sm" icon="minus" disabled={entry.sets.length <= 1} onClick={onRemoveSet}>{t('Remove set')}</Button>
-        <Button size="sm" icon="plus" onClick={onAddSet}>{t('Add set')}</Button>
+      <div className="row between">
+        <div className="row">
+          <Button size="sm" icon="minus" disabled={entry.sets.length <= 1} onClick={onRemoveSet}>{t('Remove set')}</Button>
+          <Button size="sm" icon="plus" onClick={onAddSet}>{t('Add set')}</Button>
+        </div>
+        <Button
+          size="sm"
+          variant="tinted"
+          icon="shuffle"
+          onClick={() => onSwapEx && onSwapEx(entryIdx)}
+        >
+          {t('Cambia macchinario')}
+        </Button>
       </div>
     </div>
   </>
@@ -236,11 +271,48 @@ function ActiveWorkout() {
     }
   }, [])
 
+  const swapExercise = idx => {
+    const currentEntry = A.entries[idx]
+    if (!currentEntry) return
+    const curEx = exOr(currentEntry.id)
+    exercisePicker(newEx => {
+      mutEntry(idx, e => {
+        const prevId = e.id
+        const prevName = curEx.n
+        e.id = newEx.id
+        e.swapped = { fromId: prevId, fromName: prevName, at: Date.now() }
+        // Keep completed sets intact or re-target weight/reps
+        const full = { ...(e.target || {}), id: newEx.id }
+        const r = S.routines.find(rt => rt.id === A.routineId)
+        e.plan = nextPrescription(S, full, r)
+      })
+      useUI.getState().toast(t('Esercizio sostituito: {0}', newEx.n))
+    }, {
+      title: t('Sostituisci {0}', curEx.n),
+      initialBp: curEx.bp || ''
+    })
+  }
+
+  const isClient = useStore(s => s.isClient())
+
   return <div className="narrow">
     <div className="hdr">
       <button className="iconbtn" aria-label={t('Discard')} onClick={() => confirmSheet({ title: t('Discard workout?'), message: t('The sets you logged in this session will be lost.'), confirmText: t('Discard'), danger: true, onConfirm: () => { update(s => { s.active = null }); stopRest(); nav('/home') } })}><Icon name="xmark" /></button>
       <div style={{ textAlign: 'center' }}><div style={{ fontWeight: 600 }}>{A.name}</div><div className="sub"><Elapsed start={A.start} /> · {t('{0} sets', done + '/' + total)}</div></div>
-      <button className="iconbtn" style={{ color: 'var(--acc)' }} aria-label={t('Finish')} onClick={finishWorkout}><Icon name="check" /></button>
+      <div className="row" style={{ gap: 6 }}>
+        {isClient && (
+          <button
+            className="iconbtn"
+            style={{ color: 'var(--acc)', background: 'color-mix(in srgb,var(--acc) 14%,transparent)' }}
+            aria-label={t('Chat con Personal Trainer')}
+            title={t('Chat con Personal Trainer')}
+            onClick={() => openChatSheet()}
+          >
+            <Icon name="chat" />
+          </button>
+        )}
+        <button className="iconbtn" style={{ color: 'var(--acc)' }} aria-label={t('Finish')} onClick={finishWorkout}><Icon name="check" /></button>
+      </div>
     </div>
     <div className="wprog"><i style={{ width: (total ? done / total * 100 : 0) + '%' }} /></div>
 
@@ -252,11 +324,11 @@ function ActiveWorkout() {
           {unit.map((idx, k) => <div key={idx} className="ss-ex">
             {k > 0 && <div className="ss-amp">+</div>}
             <ExerciseBlock entryIdx={idx} compact
-              onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)} onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} />
+              onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)} onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} onSwapEx={swapExercise} />
           </div>)}
         </div>
       ) : (
-        <ExerciseBlock entryIdx={cur} onToggle={i => toggle(cur, i)} onField={(i, f, v) => setField(cur, i, f, v)} onAddSet={() => addSet(cur)} onRemoveSet={() => removeSet(cur)} onStartTimed={i => startTimed(cur, i)} />
+        <ExerciseBlock entryIdx={cur} onToggle={i => toggle(cur, i)} onField={(i, f, v) => setField(cur, i, f, v)} onAddSet={() => addSet(cur)} onRemoveSet={() => removeSet(cur)} onStartTimed={i => startTimed(cur, i)} onSwapEx={swapExercise} />
       )}
     </> : <div className="empty"><div className="ico"><Icon name="shuffle" /></div>{t('Freestyle workout — add your first exercise.')}</div>}
 
@@ -269,9 +341,9 @@ function ActiveWorkout() {
     <Button onClick={() => exercisePicker(ex => exConfigSheet(ex, null, cfg => update(s => {
       const full = { ...cfg, id: ex.id }
       const plan = nextPrescription(s, full, s.routines.find(r => r.id === s.active.routineId))
-      s.active.entries.push({ id: ex.id, target: { ...cfg }, plan, sets: applyPrescription(buildSets(s, full), plan) })
+      s.active.entries.push({ id: ex.id, target: { ...cfg }, plan, addedInSession: true, sets: applyPrescription(buildSets(s, full), plan) })
       s.active.cur = s.active.entries.length - 1
-    }), null, S.routines.find(r => r.id === A.routineId)))} icon="plus">{t('Add exercise')}</Button>
+    }), null, S.routines.find(r => r.id === A.routineId)), { title: t('Aggiungi esercizio complementare') })} icon="plus">{t('Aggiungi esercizio complementare')}</Button>
     <div style={{ height: 10 }} />
     {(() => {
       const exDone = A.entries.filter(e => e.sets.length && e.sets.every(s => s.done)).length

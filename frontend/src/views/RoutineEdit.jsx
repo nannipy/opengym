@@ -18,6 +18,7 @@ export default function RoutineEdit() {
   const nav = useNavigate()
   const { id } = useParams()
   const S = useStore(s => s.S)
+  const isClient = useStore(s => s.isClient())
   const update = useStore(s => s.update)
   const r = S.routines.find(x => x.id === id)
   useEffect(() => { if (!r) nav('/plan') }, [!!r])
@@ -33,6 +34,17 @@ export default function RoutineEdit() {
     cleanupSg(ex)
   })
 
+  const swapAt = (i, curEx) => {
+    exercisePicker(newEx => {
+      edit(ex => {
+        ex[i] = { ...ex[i], id: newEx.id }
+      })
+    }, {
+      title: t('Sostituisci {0}', curEx.n),
+      initialBp: curEx.bp || ''
+    })
+  }
+
   const units = supersetUnits(r.ex)
   const unitFirst = new Set(units.filter(u => u.length > 1).map(u => u[0]))
   const inSS = new Set(units.filter(u => u.length > 1).flat())
@@ -46,6 +58,15 @@ export default function RoutineEdit() {
       </div>
       <button className="iconbtn" aria-label={t('Pick an icon')} onClick={() => glyphPicker(r.emoji, g => update(s => { s.routines.find(x => x.id === id).emoji = g }))}><Icon name={glyphOf(r.emoji)} /></button>
     </div>
+
+    {isClient && (
+      <div className="card" style={{ borderColor: 'var(--acc)', padding: '10px 14px', marginBottom: 14 }}>
+        <div className="row" style={{ gap: 8 }}>
+          <span className="tag acc" style={{ fontSize: 11 }}>{t('Scheda del Trainer')}</span>
+          <span className="small muted">{t('Puoi scambiare un esercizio o aggiungerne uno complementare.')}</span>
+        </div>
+      </div>
+    )}
 
     <div className="sect-b" style={{ marginBottom: 16 }}>
       <SelectRow icon="chartLine" title={t('Progression')} sheetTitle={t('Progression')}
@@ -69,7 +90,18 @@ export default function RoutineEdit() {
           <Thumb ex={ex} />
           <div className="grow"><div className="tt capitalize">{ex.n}</div><div className="ss">{exLine(e, S.unit)}</div></div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 'none', alignItems: 'center' }}>
-            {i > 0 && <button className={'iconbtn' + (linkedPrev ? ' on-ss' : '')} title={t('Superset with exercise above')} style={{ width: 32, height: 28, borderRadius: 8, fontSize: 15 }} onClick={ev => { ev.stopPropagation(); toggleLink(i) }}><Icon name="link" /></button>}
+            <div style={{ display: 'flex', gap: 2 }}>
+              <button
+                className="iconbtn"
+                title={t('Sostituisci esercizio')}
+                aria-label={t('Sostituisci esercizio')}
+                style={{ width: 28, height: 24, borderRadius: 7, fontSize: 12, color: 'var(--acc)' }}
+                onClick={ev => { ev.stopPropagation(); swapAt(i, ex) }}
+              >
+                <Icon name="shuffle" />
+              </button>
+              {i > 0 && <button className={'iconbtn' + (linkedPrev ? ' on-ss' : '')} title={t('Superset with exercise above')} style={{ width: 28, height: 24, borderRadius: 7, fontSize: 12 }} onClick={ev => { ev.stopPropagation(); toggleLink(i) }}><Icon name="link" /></button>}
+            </div>
             <div style={{ display: 'flex', gap: 2 }}>
               <button className="iconbtn" aria-label="Move up" style={{ width: 28, height: 24, borderRadius: 7, fontSize: 12 }} onClick={ev => { ev.stopPropagation(); move(i, -1) }}><Icon name="chevronUp" /></button>
               <button className="iconbtn" aria-label="Move down" style={{ width: 28, height: 24, borderRadius: 7, fontSize: 12 }} onClick={ev => { ev.stopPropagation(); move(i, 1) }}><Icon name="chevronDown" /></button>

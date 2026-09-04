@@ -87,10 +87,89 @@ export const useStore = create((set, get) => {
     S: (() => { const s = loadState(); registerCustom(s.customEx); return s })(),
     user: (() => { try { return JSON.parse(localStorage.getItem('gym_user')) || null } catch { return null } })(),
     ready: false,
-    // Instance capabilities from GET /api/config. `config.coach` is present only when the
-    // owner has both enabled the Coach and connected a provider — every Coach entry point in
-    // the app hangs off it, so an unconfigured instance renders exactly what it always did.
     config: null,
+
+    // Trainer state
+    templates: [],
+    clients: [],
+    loadingTemplates: false,
+    loadingClients: false,
+
+    // Role helpers
+    isTrainer: () => {
+      const u = get().user
+      return !!(u && (u.role === 'trainer' || u.admin))
+    },
+    isClient: () => {
+      const u = get().user
+      return !!(u && u.role === 'client' && !u.admin)
+    },
+
+    // Trainer actions
+    async loadTemplates() {
+      if (!get().isTrainer()) return []
+      set({ loadingTemplates: true })
+      try {
+        const { templates } = await api('/api/trainer/templates')
+        set({ templates: templates || [], loadingTemplates: false })
+        return templates
+      } catch (e) {
+        set({ loadingTemplates: false })
+        return []
+      }
+    },
+
+    async saveTemplate(tmpl) {
+      if (!get().isTrainer()) return null
+      let res
+      if (tmpl.id && get().templates.some(t => t.id === tmpl.id)) {
+        res = await api('/api/trainer/templates/' + tmpl.id, { method: 'PUT', body: JSON.stringify(tmpl) })
+      } else {
+        res = await api('/api/trainer/templates', { method: 'POST', body: JSON.stringify(tmpl) })
+      }
+      const saved = res.template
+      set(state => {
+        const exists = state.templates.some(t => t.id === saved.id)
+        return {
+          templates: exists ? state.templates.map(t => t.id === saved.id ? saved : t) : [...state.templates, saved]
+        }
+      })
+      return saved
+    },
+
+    async removeTemplate(id) {
+      if (!get().isTrainer()) return false
+      await api('/api/trainer/templates/' + id, { method: 'DELETE' })
+      set(state => ({ templates: state.templates.filter(t => t.id !== id) }))
+      return true
+    },
+
+    async loadClients() {
+      if (!get().isTrainer()) return []
+      set({ loadingClients: true })
+      try {
+        const { clients } = await api('/api/trainer/clients')
+        set({ clients: clients || [], loadingClients: false })
+        return clients
+      } catch (e) {
+        set({ loadingClients: false })
+        return []
+      }
+    },
+
+    async addClient(name) {
+      if (!get().isTrainer()) return null
+      const res = await api('/api/trainer/clients', { method: 'POST', body: JSON.stringify({ name }) })
+      await get().loadClients()
+      return res.invite
+    },
+
+    async assignClientPlan(clientId, plan) {
+      if (!get().isTrainer()) return null
+      const res = await api('/api/trainer/client/' + clientId + '/plan', { method: 'PUT', body: JSON.stringify(plan) })
+      await get().loadClients()
+      return res
+    },
 
     // Mutate a draft of S via producer fn, then persist + schedule sync.
     update(mut, push = true) {

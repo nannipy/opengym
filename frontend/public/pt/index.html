@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>openGym - Accesso Personal Trainer</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #a3e635;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="spinner"></div>
+  <h2>Accesso Personal Trainer…</h2>
+  <p style="color: #8e8e93; font-size: 15px;">Caricamento profilo Coach e atleti in corso</p>
+  <script>
+    try {
+      localStorage.setItem('gym_user', JSON.stringify({
+        id: 'trainer-demo',
+        name: 'Coach Marco (PT)',
+        role: 'trainer',
+        admin: true
+      }));
+      localStorage.removeItem('gym_guest');
+    } catch (e) {}
+    window.location.replace('../#/trainer/clients');
+  </script>
+</body>
+</html>

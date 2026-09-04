@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>openGym - Accesso Cliente</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #a3e635;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="spinner"></div>
+  <h2>Accesso Cliente…</h2>
+  <p style="color: #8e8e93; font-size: 15px;">Caricamento scheda e note del tuo Personal Trainer</p>
+  <script>
+    try {
+      localStorage.setItem('gym_user', JSON.stringify({
+        id: 'client-marco',
+        name: 'Marco Rossi (Cliente)',
+        role: 'client',
+        trainerName: 'Coach Marco'
+      }));
+      localStorage.removeItem('gym_guest');
+
+      // Populate assigned client plan in localStorage if not already present
+      var clientPlan = {
+        routines: [
+          {
+            id: 'r_push_a',
+            name: 'Giorno A - Spinta & Quad',
+            note: 'Focus eccentrica 3 sec. RIR 1-2 sui fondamentali.',
+            exercises: [
+              { id: '0025', name: 'Barbell Bench Press', sets: 4, reps: '6-8', rpe: 8, rest: 150, note: 'Fermo al petto 1s' },
+              { id: '0043', name: 'Barbell Full Squat', sets: 4, reps: '6-8', rpe: 8, rest: 180, note: 'Buca il parallelo' },
+              { id: '0426', name: 'Dumbbell Incline Bench Press', sets: 3, reps: '8-10', rpe: 8, rest: 120 },
+              { id: '0334', name: 'Dumbbell Lateral Raise', sets: 4, reps: '12-15', rpe: 9, rest: 90 },
+              { id: '0241', name: 'Cable Triceps Pushdown', sets: 3, reps: '10-12', rpe: 9, rest: 90 }
+            ]
+          },
+          {
+            id: 'r_pull_b',
+            name: 'Giorno B - Trazione & Femorali',
+            note: 'Mantieni schiena compatta su stacchi e rematori.',
+            exercises: [
+              { id: '0739', name: 'Barbell Deadlift', sets: 4, reps: '5', rpe: 8, rest: 180 },
+              { id: '0027', name: 'Barbell Bent Over Row', sets: 4, reps: '6-8', rpe: 8, rest: 120 },
+              { id: '1323', name: 'Pull-up', sets: 3, reps: '8-10', rpe: 8, rest: 120 },
+              { id: '0031', name: 'Barbell Biceps Curl', sets: 3, reps: '10-12', rpe: 9, rest: 90 }
+            ]
+          },
+          {
+            id: 'r_legs_c',
+            name: 'Giorno C - Spalle & Braccia Focus',
+            note: 'Volume extra su deltoidi e braccia.',
+            exercises: [
+              { id: '0085', name: 'Barbell Overhead Press', sets: 4, reps: '6-8', rpe: 8, rest: 150 },
+              { id: '0585', name: 'Leg Press', sets: 4, reps: '10-12', rpe: 8, rest: 120 },
+              { id: '0586', name: 'Leg Curl', sets: 3, reps: '12-15', rpe: 9, rest: 90 }
+            ]
+          }
+        ],
+        week: [0, null, 1, null, 2, null, null],
+        note: 'Scheda Personal Trainer: Mesociclo 2. Carico progressivo e tecnica pulita.'
+      };
+
+      var existing = localStorage.getItem('gym_state_v1');
+      if (existing) {
+        try {
+          var parsed = JSON.parse(existing);
+          parsed.plan = clientPlan;
+          localStorage.setItem('gym_state_v1', JSON.stringify(parsed));
+        } catch(e) {}
+      } else {
+        localStorage.setItem('gym_state_v1', JSON.stringify({
+          plan: clientPlan,
+          weightUnit: 'kg',
+          targetWeight: 78
+        }));
+      }
+    } catch (e) {}
+    window.location.replace('../#/home');
+  </script>
+</body>
+</html>

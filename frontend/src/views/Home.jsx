@@ -5,6 +5,7 @@ import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW, setsDoneActi
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, bwDeltaColor } from '../sheets.jsx'
+import { openChatSheet } from '../components/ChatSheet.jsx'
 import LineChart from '../components/LineChart.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
@@ -44,9 +45,10 @@ export default function Home() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
+  const isClient = useStore(s => s.isClient())
   const config = useStore(s => s.config)
   const [weekOffset, setWeekOffset] = useState(0)
-  const coachOn = coachAvailable(config, user, { demo: DEMO, mobile: MOBILE })
+  const coachOn = !isClient && coachAvailable(config, user, { demo: DEMO, mobile: MOBILE })
 
   const today = new Date()
   const routine = effectiveRoutine(S, todayISO())
@@ -79,8 +81,43 @@ export default function Home() {
   return <div className="narrow">
     <div className="hdr">
       <div><h1>{user ? t('Hi {0}', user.name) : 'openGym'}</h1><div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
-      <button className="iconbtn" onClick={() => nav('/settings')} aria-label={t('Settings')}><Icon name="gear" /></button>
+      <div className="row" style={{ gap: 8 }}>
+        {isClient && (
+          <button
+            className="iconbtn"
+            style={{ color: 'var(--acc)', background: 'color-mix(in srgb,var(--acc) 14%,transparent)' }}
+            onClick={() => openChatSheet()}
+            aria-label={t('Chat con Personal Trainer')}
+            title={t('Chat con Personal Trainer')}
+          >
+            <Icon name="chat" />
+          </button>
+        )}
+        <button className="iconbtn" onClick={() => nav('/settings')} aria-label={t('Settings')}><Icon name="gear" /></button>
+      </div>
     </div>
+
+    {/* Trainer Plan Banner for Client */}
+    {isClient && (
+      <div className="card" style={{ borderColor: 'var(--acc)', padding: '12px 14px', marginBottom: 12 }}>
+        <div className="row between" style={{ marginBottom: S.notes ? 6 : 0 }}>
+          <div className="row" style={{ gap: 8 }}>
+            <span className="tag acc" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 8px', fontSize: 12 }}>
+              <Icon name="clipboard" style={{ fontSize: 13 }} />
+              {t('Scheda assegnata dal Trainer')}
+            </span>
+          </div>
+          <Button size="sm" variant="tinted" icon="chat" onClick={() => openChatSheet()}>
+            {t('Chat PT')}
+          </Button>
+        </div>
+        {S.notes && (
+          <div className="small muted" style={{ marginTop: 6, fontStyle: 'italic', lineHeight: 1.4 }}>
+            📝 “{S.notes}”
+          </div>
+        )}
+      </div>
+    )}
 
     <div className="card">
       <div className="row between" style={{ marginBottom: 8 }}>

@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore.js'
 import { DAYN, uid, exCount } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { dayAssignSheet, loadStarterPlan, planToolsSheet } from '../sheets.jsx'
+import { openChatSheet } from '../components/ChatSheet.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
@@ -14,9 +15,10 @@ export default function Plan() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
+  const isClient = useStore(s => s.isClient())
   const config = useStore(s => s.config)
   const update = useStore(s => s.update)
-  const coachOn = coachAvailable(config, user, { demo: DEMO, mobile: MOBILE })
+  const coachOn = !isClient && coachAvailable(config, user, { demo: DEMO, mobile: MOBILE })
 
   const addRoutine = () => {
     const r = { id: uid(), name: t('New routine'), emoji: DEFAULT_GLYPH, ex: [] }
@@ -28,8 +30,42 @@ export default function Plan() {
     <div className="hdr">
       <div><h1>{t('Plan')}</h1><div className="sub">{t('Your weekly routine')}</div></div>
       {coachOn && <button className="iconbtn" onClick={() => nav('/coach')} aria-label={t('Coach')} title={t('Coach')}><Icon name="sparkles" /></button>}
+      {isClient && (
+        <button
+          className="iconbtn"
+          style={{ color: 'var(--acc)', background: 'color-mix(in srgb,var(--acc) 14%,transparent)' }}
+          onClick={() => openChatSheet()}
+          aria-label={t('Chat con Personal Trainer')}
+          title={t('Chat con Personal Trainer')}
+        >
+          <Icon name="chat" />
+        </button>
+      )}
       <button className="iconbtn" onClick={planToolsSheet} aria-label={t('Share your plan')} title={t('Share your plan')}><Icon name="upload" /></button>
     </div>
+
+    {/* Trainer Plan Banner for Client */}
+    {isClient && (
+      <div className="card" style={{ borderColor: 'var(--acc)', padding: '12px 14px', marginBottom: 14 }}>
+        <div className="row between" style={{ marginBottom: S.notes ? 6 : 0 }}>
+          <div className="row" style={{ gap: 8 }}>
+            <span className="tag acc" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 8px', fontSize: 12 }}>
+              <Icon name="clipboard" style={{ fontSize: 13 }} />
+              {t('Scheda assegnata dal Trainer')}
+            </span>
+          </div>
+          <Button size="sm" variant="tinted" icon="chat" onClick={() => openChatSheet()}>
+            {t('Chat PT')}
+          </Button>
+        </div>
+        {S.notes && (
+          <div className="small muted" style={{ marginTop: 6, fontStyle: 'italic', lineHeight: 1.4 }}>
+            📝 “{S.notes}”
+          </div>
+        )}
+      </div>
+    )}
+
     <div className="cols"><div>
       <h4 className="sec">{t('Week schedule')}</h4>
       <div className="list" style={{ display: 'flex', flexDirection: 'column' }}>

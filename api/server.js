@@ -9,13 +9,10 @@ import {
   generateAuthenticationOptions, verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import webpush from 'web-push';
-import * as coachConfig from './coach/config.js';
-import * as coachJobs from './coach/jobs.js';
-import { coachRoutes } from './coach/routes.js';
-import { startCadence } from './coach/cadence.js';
 
 const PORT = +(process.env.PORT || 3000);
-const DATA = process.env.DATA_DIR || '/data';
+// Inside Docker /data is mounted, outside Docker fallback to ../data in project root
+const DATA = process.env.DATA_DIR || (fs.existsSync('/data') ? '/data' : path.resolve('../data'));
 const RP_ID = process.env.RP_ID || 'localhost';
 const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
 const RP_NAME = process.env.RP_NAME || 'openGym';
@@ -33,10 +30,7 @@ const MAX_BODY = 5 * 1024 * 1024;
 const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
 
 fs.mkdirSync(DATA, { recursive: true });
-// 0700 is what stops the unprivileged user that Coach jobs run as from reading any of this —
-// state files, db.json, the session secret, the provider credential. The Agent SDK process gets
-// its job payload in a temp directory and nothing else. Best-effort: a bind-mounted host directory
-// may refuse the chmod, and that is not a reason to refuse to boot.
+// 0700 is what stops the unprivileged user from reading state files, db.json, the session secret.
 try { fs.chmodSync(DATA, 0o700); } catch { /* host filesystem says no — carry on */ }
 
 /* ---------- secret + db ---------- */
@@ -45,11 +39,24 @@ if (!fs.existsSync(secretFile)) fs.writeFileSync(secretFile, crypto.randomBytes(
 const SECRET = fs.readFileSync(secretFile, 'utf8').trim();
 
 const dbFile = path.join(DATA, 'db.json');
-let db = { users: [], creds: [], subs: [], invites: [] };
+let db = { users: [], creds: [], subs: [], invites: [], templates: [], chats: {} };
 try { db = JSON.parse(fs.readFileSync(dbFile, 'utf8')); } catch {}
+db.users = db.users || [];
+db.creds = db.creds || [];
 db.subs = db.subs || [];
 db.invites = db.invites || [];
-const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
+db.templates = db.templates || [];
+db.chats = db.chats || {};
+
+// Role resolution: 'trainer' for admin / first user / ADMIN_UIDS, otherwise user.role || 'client'
+const isTrainer = (user) => {
+  if (!user) return false;
+  if (user.role === 'trainer' || user.admin === true || ADMIN_UIDS.includes(user.id)) return true;
+  if (db.users.length > 0 && db.users[0].id === user.id) return true;
+  return false;
+};
+const roleOf = (user) => (isTrainer(user) ? 'trainer' : (user?.role || 'client'));
+const isAdmin = user => isTrainer(user);
 function saveDb() { atomicWrite(dbFile, JSON.stringify(db, null, 2)); }
 function atomicWrite(file, content) {
   const tmp = file + '.tmp';
@@ -58,6 +65,7 @@ function atomicWrite(file, content) {
 }
 const stateFile = uid => path.join(DATA, 'state-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
 function readState(uid) {
+
   try { return JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); } catch { return null; }
 }
 
@@ -200,13 +208,15 @@ function readSession(req) {
   if (!Number.isInteger(claimed) || claimed !== sessionVersion(user)) return null;
   return user;
 }
-// Guard for /api/admin/* — resolves the caller and 401/403s if they aren't an admin.
+// Guard for /api/admin/* and /api/trainer/* — resolves the caller and 401/403s if they aren't a trainer/admin.
 function requireAdmin(req, res) {
   const user = readSession(req);
   if (!user) { json(res, 401, { error: 'not signed in' }); return null; }
-  if (!isAdmin(user)) { json(res, 403, { error: 'forbidden' }); return null; }
+  if (!isTrainer(user)) { json(res, 403, { error: 'forbidden' }); return null; }
   return user;
 }
+const requireTrainer = requireAdmin;
+
 function sessionCookie(user) {
   return `gymsid=${makeSession(user)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly;${SECURE} SameSite=Lax`;
 }
@@ -272,22 +282,33 @@ const routes = {
   // single flag every piece of Coach UI hangs off, so an unconfigured instance is byte-for-byte
   // the app it was before the feature existed.
   'GET /api/config': async (req, res) => {
-    const coach = coachConfig.publicConfig();
-    json(res, 200, { invite_only: INVITE_ONLY, ...(coach ? { coach } : {}) });
+    json(res, 200, { invite_only: INVITE_ONLY });
   },
 
   'GET /api/me': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } });
+    json(res, 200, {
+      user: {
+        id: user.id,
+        name: user.name,
+        admin: isAdmin(user),
+        role: roleOf(user),
+        ...(user.trainerId ? { trainerId: user.trainerId } : {})
+      }
+    });
   },
 
   'POST /api/register/options': async (req, res) => {
     const body = await readBody(req);
-    const name = String(body.name || '').trim().slice(0, 40);
+    const token = String(body.token || body.code || '').trim();
+    const isTokenFormat = token.startsWith('tkn_');
+    const invite = isTokenFormat ? db.invites.find(i => i.token === token && !i.usedBy && !i.revoked) : null;
+    let name = String(body.name || '').trim().slice(0, 40);
+    if (!name && invite && invite.name) name = invite.name;
     if (!name) return json(res, 400, { error: 'name required' });
-    const code = String(body.code || '').trim().toUpperCase();
-    if (INVITE_ONLY && !db.invites.some(i => i.code === code && !i.usedBy && !i.revoked))
+    const code = token.toUpperCase();
+    if (INVITE_ONLY && !invite && !db.invites.some(i => i.code === code && !i.usedBy && !i.revoked))
       return json(res, 403, { error: 'a valid invite code is required' });
     const uid = crypto.randomBytes(12).toString('base64url');
     const options = await generateRegistrationOptions({
@@ -297,8 +318,8 @@ const routes = {
       authenticatorSelection: { residentKey: 'required', userVerification: 'preferred' },
       excludeCredentials: []
     });
-    const cid = putChallenge({ challenge: options.challenge, name, uid, code });
-    json(res, 200, { cid, options });
+    const cid = putChallenge({ challenge: options.challenge, name, uid, code, token: invite ? token : null });
+    json(res, 200, { cid, options, name });
   },
 
   'POST /api/register/verify': async (req, res) => {
@@ -318,14 +339,29 @@ const routes = {
     if (!verification.verified) return json(res, 400, { error: 'not verified' });
     const { credential } = verification.registrationInfo;
     if (db.creds.find(x => x.id === credential.id)) return json(res, 409, { error: 'credential already registered' });
-    // Re-check the invite at the last moment (it may have been used/revoked since options), then burn it.
+    // Re-check the invite / token at the last moment, then burn it.
     let invite = null;
-    if (INVITE_ONLY) {
+    if (c.token) {
+      invite = db.invites.find(i => i.token === c.token && !i.usedBy && !i.revoked);
+      if (!invite) return json(res, 403, { error: 'onboarding token is no longer valid' });
+    } else if (INVITE_ONLY) {
       invite = db.invites.find(i => i.code === c.code && !i.usedBy && !i.revoked);
       if (!invite) return json(res, 403, { error: 'invite code is no longer valid — ask for a new one' });
     }
-    const user = { id: c.uid, name: c.name, created: new Date().toISOString() };
-    if (invite) { user.invitedBy = invite.code; invite.usedBy = user.id; invite.usedAt = user.created; }
+    const isFirstUser = db.users.length === 0;
+    const assignedRole = invite?.role || (isFirstUser ? 'trainer' : 'client');
+    const user = {
+      id: c.uid,
+      name: c.name,
+      role: assignedRole,
+      created: new Date().toISOString()
+    };
+    if (invite) {
+      user.invitedBy = invite.token || invite.code;
+      if (invite.trainerId) user.trainerId = invite.trainerId;
+      invite.usedBy = user.id;
+      invite.usedAt = user.created;
+    }
     db.users.push(user);
     db.creds.push({
       id: credential.id, userId: user.id,
@@ -334,7 +370,15 @@ const routes = {
       transports: body.credential?.response?.transports || []
     });
     saveDb();
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, {
+      user: {
+        id: user.id,
+        name: user.name,
+        admin: isAdmin(user),
+        role: roleOf(user),
+        ...(user.trainerId ? { trainerId: user.trainerId } : {})
+      }
+    }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   'POST /api/login/options': async (req, res) => {
@@ -373,8 +417,17 @@ const routes = {
     const user = db.users.find(u => u.id === cred.userId);
     if (!user) return json(res, 500, { error: 'user missing' });
     if (user.disabled) return json(res, 403, { error: 'this account has been disabled' });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, {
+      user: {
+        id: user.id,
+        name: user.name,
+        admin: isAdmin(user),
+        role: roleOf(user),
+        ...(user.trainerId ? { trainerId: user.trainerId } : {})
+      }
+    }, { 'Set-Cookie': sessionCookie(user) });
   },
+
 
   'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie }),
 
@@ -558,38 +611,294 @@ const routes = {
     json(res, 200, { ok: true });
   },
 
-  /* ---------- AI Coach ---------- */
-  // Routes live in coach/routes.js and are handed the helpers above rather than importing
-  // them: they are closures over db and SECRET, and passing them in keeps that module free of
-  // a cycle. Every one of them is inert while the feature is unconfigured.
-  ...coachRoutes({ json, readBody, readSession, requireAdmin })
+  /* ---------- trainer & templates ---------- */
+  'GET /api/trainer/templates': async (req, res) => {
+    if (!requireTrainer(req, res)) return;
+    json(res, 200, { templates: db.templates || [] });
+  },
+
+  'POST /api/trainer/templates': async (req, res) => {
+    const trainer = requireTrainer(req, res); if (!trainer) return;
+    const body = await readBody(req);
+    const name = String(body.name || '').trim().slice(0, 60);
+    if (!name) return json(res, 400, { error: 'template name required' });
+    const template = {
+      id: body.id ? String(body.id) : 'tmpl_' + crypto.randomBytes(8).toString('base64url'),
+      name,
+      emoji: body.emoji || '📋',
+      prog: body.prog || 'double',
+      routines: Array.isArray(body.routines) ? body.routines : [],
+      week: body.week && typeof body.week === 'object' ? body.week : {},
+      updatedAt: Date.now()
+    };
+    db.templates = (db.templates || []).filter(t => t.id !== template.id);
+    db.templates.push(template);
+    saveDb();
+    json(res, 201, { template });
+  },
+
+  /* ---------- trainer & clients ---------- */
+  'GET /api/trainer/clients': async (req, res) => {
+    const trainer = requireTrainer(req, res); if (!trainer) return;
+    // Clients of this trainer or all clients if trainer is admin
+    const clients = db.users
+      .filter(u => roleOf(u) === 'client' && (!u.trainerId || u.trainerId === trainer.id || isAdmin(trainer)))
+      .map(u => {
+        const S = readState(u.id) || {};
+        const workouts = S.workouts || [];
+        const last = workouts[workouts.length - 1];
+        let totalVolume = 0;
+        workouts.forEach(w => {
+          if (w.vol != null) totalVolume += w.vol;
+          else (w.entries || []).forEach(e => (e.sets || []).forEach(s => { if (s.done) totalVolume += (s.w || 0) * (s.r || 0); }));
+        });
+        return {
+          id: u.id,
+          name: u.name,
+          role: 'client',
+          created: u.created || null,
+          disabled: !!u.disabled,
+          invitedBy: u.invitedBy || null,
+          workoutsCount: workouts.length,
+          totalVolume,
+          lastWorkout: last ? {
+            id: last.id,
+            name: last.name,
+            d: last.d,
+            end: last.end || null,
+            vol: last.vol || null
+          } : null,
+          lastSync: S._ts || null,
+          live: livePresence(u.id),
+          hasPush: db.subs.some(s => s.userId === u.id)
+        };
+      });
+    json(res, 200, { clients, now: Date.now() });
+  },
+
+  'POST /api/trainer/clients': async (req, res) => {
+    const trainer = requireTrainer(req, res); if (!trainer) return;
+    const body = await readBody(req);
+    const name = String(body.name || '').trim().slice(0, 40);
+    if (!name) return json(res, 400, { error: 'client name required' });
+    const token = 'tkn_' + crypto.randomBytes(12).toString('base64url');
+    const invite = {
+      token,
+      name,
+      role: 'client',
+      trainerId: trainer.id,
+      createdBy: trainer.id,
+      created: new Date().toISOString()
+    };
+    db.invites.push(invite);
+    saveDb();
+    const origin = req.headers.origin || ORIGIN;
+    const inviteLink = `${origin}/#onboard=${token}`;
+    json(res, 201, { invite: { ...invite, inviteLink } });
+  },
+
+  'GET /api/onboarding/info': async (req, res) => {
+    const token = new URL(req.url, 'http://x').searchParams.get('token');
+    if (!token) return json(res, 400, { error: 'token required' });
+    const inv = db.invites.find(i => i.token === token && !i.usedBy && !i.revoked);
+    if (!inv) return json(res, 404, { error: 'invalid or expired onboarding token' });
+    const trainer = db.users.find(u => u.id === inv.trainerId);
+    json(res, 200, {
+      token: inv.token,
+      name: inv.name,
+      role: inv.role,
+      trainerName: trainer?.name || 'Your Trainer'
+    });
+  },
+
+  /* ---------- AI Coach (deactivated / lightweight no-op) ---------- */
+  'GET /api/coach/disclosure': async (req, res) => json(res, 200, { provider: 'none', categories: {}, version: 1 }),
+  'GET /api/coach/status': async (req, res) => json(res, 200, { enabled: false, running: false }),
+  'POST /api/coach/plan': async (req, res) => json(res, 503, { error: 'AI Coach is disabled' }),
+  'POST /api/coach/review': async (req, res) => json(res, 503, { error: 'AI Coach is disabled' }),
+  'POST /api/coach/pending/resolve': async (req, res) => json(res, 200, { ok: true }),
+  'POST /api/coach/forget': async (req, res) => json(res, 200, { ok: true }),
+  'GET /api/admin/coach': async (req, res) => json(res, 200, { enabled: false, connected: false, provider: null, log: [] }),
+  'POST /api/admin/coach/config': async (req, res) => json(res, 200, { ok: true }),
+  'POST /api/admin/coach/test': async (req, res) => json(res, 200, { ok: false, error: 'AI Coach is disabled' }),
+  'POST /api/admin/coach/auth/disconnect': async (req, res) => json(res, 200, { ok: true })
 };
 
-/* ---------- Coach: boot recovery, notifications, scheduled reviews ---------- */
-// A job that was running when the process died is not coming back; say so rather than leaving
-// a spinner that never resolves.
-coachJobs.recoverOnBoot();
-// A ready proposal is the one Coach event worth a notification. Failures and "nothing to
-// change" stay silent on purpose (FR-38/E4).
-coachJobs.setProposalHook((uid, pending) => {
-  const n = (pending?.changes || []).length;
-  if (!n) return;
-  sendPush(uid, {
-    title: 'Your Coach has been reading',
-    body: n === 1 ? '1 suggestion after this week' : `${n} suggestions after this week`,
-    tag: 'coach-proposal', url: '#/coach'
-  });
-});
-startCadence({ users: () => db.users, userNow });
+// Custom dynamic router for path params like /api/trainer/templates/:id, /api/trainer/client/:id, /api/chat/:clientId
+const dynamicRoutes = [
+  // Templates PUT and DELETE
+  {
+    method: 'PUT',
+    pattern: /^\/api\/trainer\/templates\/([a-zA-Z0-9_-]+)$/,
+    handler: async (req, res, [id]) => {
+      const trainer = requireTrainer(req, res); if (!trainer) return;
+      const idx = (db.templates || []).findIndex(t => t.id === id);
+      if (idx === -1) return json(res, 404, { error: 'template not found' });
+      const body = await readBody(req);
+      const cur = db.templates[idx];
+      const updated = {
+        ...cur,
+        name: body.name !== undefined ? String(body.name).trim().slice(0, 60) : cur.name,
+        emoji: body.emoji !== undefined ? body.emoji : cur.emoji,
+        prog: body.prog !== undefined ? body.prog : cur.prog,
+        routines: Array.isArray(body.routines) ? body.routines : cur.routines,
+        week: body.week && typeof body.week === 'object' ? body.week : cur.week,
+        updatedAt: Date.now()
+      };
+      db.templates[idx] = updated;
+      saveDb();
+      json(res, 200, { template: updated });
+    }
+  },
+  {
+    method: 'DELETE',
+    pattern: /^\/api\/trainer\/templates\/([a-zA-Z0-9_-]+)$/,
+    handler: async (req, res, [id]) => {
+      const trainer = requireTrainer(req, res); if (!trainer) return;
+      const initialLen = (db.templates || []).length;
+      db.templates = (db.templates || []).filter(t => t.id !== id);
+      if (db.templates.length === initialLen) return json(res, 404, { error: 'template not found' });
+      saveDb();
+      json(res, 200, { ok: true, id });
+    }
+  },
+  // Client plan PUT: /api/trainer/client/:id/plan
+  {
+    method: 'PUT',
+    pattern: /^\/api\/trainer\/client\/([a-zA-Z0-9_-]+)\/plan$/,
+    handler: async (req, res, [clientId]) => {
+      const trainer = requireTrainer(req, res); if (!trainer) return;
+      const client = db.users.find(u => u.id === clientId);
+      if (!client) return json(res, 404, { error: 'client not found' });
+      const body = await readBody(req);
+      let S = readState(client.id) || {};
+      if (body.routines && Array.isArray(body.routines)) S.routines = body.routines;
+      if (body.week && typeof body.week === 'object') S.week = body.week;
+      if (body.notes !== undefined) S.notes = String(body.notes).slice(0, 1000);
+      if (body.dayPlan && typeof body.dayPlan === 'object') S.dayPlan = body.dayPlan;
+      S._ts = Date.now();
+      atomicWrite(stateFile(client.id), JSON.stringify(S));
+      sendPush(client.id, {
+        title: 'Scheda aggiornata dal Trainer 💪',
+        body: 'Il tuo trainer ha aggiornato la tua scheda di allenamento.',
+        tag: 'plan-updated'
+      }).catch(() => {});
+      json(res, 200, { ok: true, clientId, state: S });
+    }
+  },
+  // Client detail GET: /api/trainer/client/:id
+  {
+    method: 'GET',
+    pattern: /^\/api\/trainer\/client\/([a-zA-Z0-9_-]+)$/,
+    handler: async (req, res, [clientId]) => {
+      const trainer = requireTrainer(req, res); if (!trainer) return;
+      const client = db.users.find(u => u.id === clientId);
+      if (!client) return json(res, 404, { error: 'client not found' });
+      const S = readState(client.id) || {};
+      json(res, 200, {
+        client: {
+          id: client.id,
+          name: client.name,
+          role: roleOf(client),
+          trainerId: client.trainerId || null,
+          created: client.created || null,
+          disabled: !!client.disabled
+        },
+        unit: S.unit || 'kg',
+        lastSync: S._ts || null,
+        notes: S.notes || '',
+        routines: S.routines || [],
+        week: S.week || {},
+        dayPlan: S.dayPlan || {},
+        bodyweight: S.bodyweight || [],
+        workouts: (S.workouts || []).slice().reverse()
+      });
+    }
+  },
+  // Chat GET: /api/chat/:clientId
+  {
+    method: 'GET',
+    pattern: /^\/api\/chat\/([a-zA-Z0-9_-]+)$/,
+    handler: async (req, res, [clientId]) => {
+      const user = readSession(req);
+      if (!user) return json(res, 401, { error: 'not signed in' });
+      const isClient = user.id === clientId;
+      const isUserTrainer = isTrainer(user);
+      if (!isClient && !isUserTrainer) return json(res, 403, { error: 'forbidden' });
+      const msgs = (db.chats && db.chats[clientId]) || [];
+      json(res, 200, { messages: msgs });
+    }
+  },
+  // Chat POST: /api/chat/:clientId
+  {
+    method: 'POST',
+    pattern: /^\/api\/chat\/([a-zA-Z0-9_-]+)$/,
+    handler: async (req, res, [clientId]) => {
+      const user = readSession(req);
+      if (!user) return json(res, 401, { error: 'not signed in' });
+      const isClient = user.id === clientId;
+      const isUserTrainer = isTrainer(user);
+      if (!isClient && !isUserTrainer) return json(res, 403, { error: 'forbidden' });
+      const body = await readBody(req);
+      const text = String(body.text || '').trim().slice(0, 2000);
+      if (!text) return json(res, 400, { error: 'message text required' });
+      const sender = isUserTrainer ? 'trainer' : 'client';
+      const msg = {
+        id: 'msg_' + crypto.randomBytes(8).toString('base64url'),
+        sender,
+        senderId: user.id,
+        senderName: user.name,
+        text,
+        ts: Date.now()
+      };
+      db.chats = db.chats || {};
+      db.chats[clientId] = db.chats[clientId] || [];
+      db.chats[clientId].push(msg);
+      saveDb();
+      // Push notification to recipient
+      const recipientId = sender === 'trainer' ? clientId : (user.trainerId || (db.users.find(u => isTrainer(u))?.id));
+      if (recipientId) {
+        sendPush(recipientId, {
+          title: `Messaggio da ${user.name}`,
+          body: text.length > 80 ? text.slice(0, 77) + '...' : text,
+          tag: 'chat-msg'
+        }).catch(() => {});
+      }
+      json(res, 201, { message: msg });
+    }
+  }
+];
 
-http.createServer(async (req, res) => {
+const httpServer = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const key = req.method + ' ' + url.pathname;
   const handler = routes[key];
-  if (!handler) return json(res, 404, { error: 'not found' });
-  try { await handler(req, res); }
-  catch (e) {
-    console.error(key, e);
-    if (!res.headersSent) json(res, 500, { error: 'server error' });
+  if (handler) {
+    try { await handler(req, res); }
+    catch (e) {
+      console.error(key, e);
+      if (!res.headersSent) json(res, 500, { error: 'server error' });
+    }
+    return;
   }
-}).listen(PORT, () => console.log(`gym-api on :${PORT} (rpID=${RP_ID}, origin=${ORIGIN})`));
+  // Try dynamic routes
+  for (const dr of dynamicRoutes) {
+    if (dr.method === req.method) {
+      const match = url.pathname.match(dr.pattern);
+      if (match) {
+        try { await dr.handler(req, res, match.slice(1)); }
+        catch (e) {
+          console.error(key, e);
+          if (!res.headersSent) json(res, 500, { error: 'server error' });
+        }
+        return;
+      }
+    }
+  }
+  return json(res, 404, { error: 'not found' });
+});
+
+export const server = httpServer.listen(PORT, () => console.log(`gym-api on :${PORT} (rpID=${RP_ID}, origin=${ORIGIN})`));
+export default server;
+
+

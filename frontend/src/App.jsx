@@ -27,6 +27,11 @@ import Admin from './views/Admin.jsx'
 import Coach from './views/Coach.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachProposal from './views/CoachProposal.jsx'
+import ClientsView from './views/trainer/ClientsView.jsx'
+import TemplatesView from './views/trainer/TemplatesView.jsx'
+import TrainerChatListView from './views/trainer/TrainerChatListView.jsx'
+
+import DemoSwitcher from './components/DemoSwitcher.jsx'
 
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
@@ -41,7 +46,7 @@ function applyPrefs(theme, accent) {
 function Shell() {
   const navigate = useNavigate()
   const loc = useLocation()
-  const { S, user, ready } = useStore()
+  const { S, user, ready, setUser } = useStore()
   const isGuest = useStore(s => s.isGuest())
   const langV = useLang()   // re-renders the whole shell when the language (pack) changes
   useEffect(() => { setNav(navigate) }, [navigate])
@@ -52,6 +57,17 @@ function Shell() {
   useEffect(() => { window.scrollTo(0, 0) }, [loc.pathname])
   // bound to the workout, not to the route — checking Stats mid-session keeps the screen on
   useWakeLock(!!S.active && S.keepAwake !== false)
+
+  // Auto-entry for /pt and /cliente routes
+  useEffect(() => {
+    if (loc.pathname === '/pt') {
+      setUser({ id: 'trainer-demo', name: 'Coach Marco (PT)', role: 'trainer', admin: true })
+      navigate('/trainer/clients', { replace: true })
+    } else if (loc.pathname === '/cliente') {
+      setUser({ id: 'client-marco', name: 'Marco Rossi (Cliente)', role: 'client', trainerName: 'Coach Marco' })
+      navigate('/home', { replace: true })
+    }
+  }, [loc.pathname])
 
   const authed = user || isGuest
   if (!ready && !authed) return (
@@ -84,12 +100,19 @@ function Shell() {
               <Route path="/coach" element={<Coach />} />
               <Route path="/coach/intake" element={<CoachIntake />} />
               <Route path="/coach/proposal" element={<CoachProposal />} />
+              {/* Trainer views */}
+              <Route path="/trainer" element={<Navigate to="/trainer/clients" replace />} />
+              <Route path="/trainer/clients" element={<ClientsView />} />
+              <Route path="/trainer/templates" element={<TemplatesView />} />
+              <Route path="/trainer/chat" element={<TrainerChatListView />} />
+
               <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
-              <Route path="*" element={<Navigate to="/home" replace />} />
+              <Route path="*" element={<Navigate to={useStore.getState().isTrainer() ? "/trainer/clients" : "/home"} replace />} />
             </Routes>
           )}
         </ErrorBoundary>
       </div>
+      <DemoSwitcher />
       <TabBar onStart={startFlow} />
       <RestTimer />
       <Modals />

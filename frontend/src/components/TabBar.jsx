@@ -11,9 +11,10 @@ export default function TabBar({ onStart }) {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const isGuest = useStore(s => s.isGuest())
+  const isTrainer = useStore(s => s.isTrainer())
   if (!user && !isGuest) return null
-  const cur = loc.pathname.split('/')[1] || 'home'
-  const on = k => cur === k || (cur === 'history' && k === 'stats') || (cur === 'settings' && k === 'home')
+  const cur = loc.pathname.split('/')[1] || (isTrainer ? 'trainer' : 'home')
+  const on = k => cur === k || (cur === 'history' && k === 'stats') || (cur === 'settings' && (k === 'home' || k === 'settings'))
 
   const startWorkout = () => {
     if (!S.active) {
@@ -27,6 +28,17 @@ export default function TabBar({ onStart }) {
       <Icon name={icon} /><span>{label}</span>
     </button>
   )
+
+  if (isTrainer) {
+    return (
+      <nav id="tabbar">
+        <Tab k="trainer" icon="person" to="/trainer/clients" label="Clienti" />
+        <Tab k="templates" icon="clipboard" to="/trainer/templates" label="Template" />
+        <Tab k="chat" icon="message" to="/trainer/chat" label="Chat" />
+        <Tab k="settings" icon="gear" to="/settings" label="Impostazioni" />
+      </nav>
+    )
+  }
 
   return (
     <nav id="tabbar">

@@ -1,12 +1,22 @@
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { webauthnOK, passkeyLogin, passkeyRegister, api, BIO } from '../lib/api.js'
+import { webauthnOK, passkeyLogin, passkeyRegister, passkeyRegisterWithToken, getOnboardingInfo, api, BIO } from '../lib/api.js'
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { useState, useRef, useEffect } from 'react'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
+
+function parseOnboardToken() {
+  // Check hash: #onboard=tkn_... or #/onboard=tkn_...
+  const h = window.location.hash || ''
+  const m = h.match(/onboard=([a-zA-Z0-9_-]+)/)
+  if (m) return m[1]
+  // Check search query param ?onboard=tkn_... or ?token=tkn_...
+  const search = new URLSearchParams(window.location.search)
+  return search.get('onboard') || search.get('token') || null
+}
 
 function RegisterSheet({ close }) {
   const { setUser, pushState, pullState } = useStore()
@@ -44,6 +54,47 @@ function RegisterSheet({ close }) {
 
 export default function Login() {
   const { setUser, pullState, setGuest } = useStore()
+  const [onboardToken, setOnboardToken] = useState(() => parseOnboardToken())
+  const [onboardInfo, setOnboardInfo] = useState(null)
+  const [loadingOnboard, setLoadingOnboard] = useState(false)
+  const [registering, setRegistering] = useState(false)
+
+  useEffect(() => {
+    if (!onboardToken) return
+    setLoadingOnboard(true)
+    getOnboardingInfo(onboardToken)
+      .then(info => {
+        setOnboardInfo(info)
+        setLoadingOnboard(false)
+      })
+      .catch(e => {
+        useUI.getState().toast(t('Invito non valido o scaduto'))
+        setLoadingOnboard(false)
+        setOnboardToken(null)
+      })
+  }, [onboardToken])
+
+  const activateOnboard = async () => {
+    if (!onboardToken) return
+    setRegistering(true)
+    try {
+      const u = await passkeyRegisterWithToken(onboardToken, onboardInfo?.name)
+      setUser(u)
+      // Clean up hash/url to avoid re-triggering onboarding on page refresh
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname)
+      }
+      await pullState()
+      useUI.getState().toast(t('Benvenuto in openGym, {0}!', u.name))
+    } catch (e) {
+      if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') {
+        useUI.getState().toast(e.message || t('Attivazione passkey fallita'))
+      }
+    } finally {
+      setRegistering(false)
+    }
+  }
+
   const signIn = async () => {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
@@ -54,33 +105,104 @@ export default function Login() {
   </>
   const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
 
-  // Demo build: no backend to sign in against — the only way in is the local guest profile.
-  if (DEMO) return (
-    <div className="narrow" style={wrap}>
-      {head}
-      <div className="muted" style={{ marginBottom: 30 }}>{t('Live demo — everything stays in this browser.')}</div>
-      <Button variant="primary" icon="sparkles" onClick={() => setGuest(true)}>{t('Start the demo')}</Button>
-      <div className="card small muted" style={{ textAlign: 'left', marginTop: 16 }}>
-        {t('This demo runs entirely in your browser on example data — nothing is sent anywhere. Passkey sign-in and sync across your devices come with the openGym server, which you get by self-hosting it.')}
+  // Onboarding screen
+  if (onboardToken) {
+    return (
+      <div className="narrow" style={wrap}>
+        {head}
+        <div className="card" style={{ textAlign: 'center', marginTop: 18, padding: '24px 18px', borderColor: 'var(--acc)' }}>
+          <div style={{ fontSize: 40, color: 'var(--acc)', marginBottom: 12 }}>
+            <Icon name="sparkles" />
+          </div>
+          <h2 style={{ margin: '0 0 8px', fontSize: 24, fontWeight: 700 }}>
+            {onboardInfo?.name ? t('Benvenuto, {0}!', onboardInfo.name) : t('Benvenuto!')}
+          </h2>
+          <div className="muted" style={{ marginBottom: 20, fontSize: 15, lineHeight: 1.5 }}>
+            {loadingOnboard
+              ? t('Verifica invito in corso…')
+              : t('Il tuo Personal Trainer {0} ha preparato il tuo profilo.', onboardInfo?.trainerName ? `(${onboardInfo.trainerName})` : '')}
+          </div>
+          <div className="small" style={{ marginBottom: 20, color: 'var(--label-2)' }}>
+            {t('Tocca per attivare il tuo accesso con {0}. Non dovrai ricordare alcuna password.', BIO)}
+          </div>
+          {webauthnOK() ? (
+            <Button
+              variant="primary"
+              icon="key"
+              disabled={loadingOnboard || registering}
+              onClick={activateOnboard}
+            >
+              {registering ? t('Attivazione…') : t('Attiva accesso con Passkey')}
+            </Button>
+          ) : (
+            <div className="card small muted" style={{ textAlign: 'left' }}>
+              {t("Questo browser non supporta le passkey WebAuthn.")}
+            </div>
+          )}
+          <div style={{ height: 12 }} />
+          <Button variant="ghost" className="dim" onClick={() => setOnboardToken(null)}>
+            {t('Torna al login normale')}
+          </Button>
+        </div>
       </div>
-      <div className="dim small" style={{ marginTop: 22, lineHeight: 1.6 }}>
-        <a href={REPO} target="_blank" rel="noopener">{t('Self-host it in a minute →')}</a>
-      </div>
-    </div>
-  )
+    )
+  }
 
+  const loginAsTrainerDemo = () => {
+    setUser({ id: 'trainer-demo', name: 'Coach Marco (PT)', role: 'trainer', admin: true })
+    useUI.getState().toast('Accesso effettuato come Personal Trainer')
+  }
+
+  const loginAsClientDemo = () => {
+    setUser({ id: 'client-marco', name: 'Marco Rossi (Cliente)', role: 'client', trainerName: 'Coach Marco' })
+    useUI.getState().toast('Accesso effettuato come Cliente')
+  }
+
+  // Demo build or static hosting
   return (
     <div className="narrow" style={wrap}>
       {head}
-      <div className="muted" style={{ marginBottom: 34 }}>{t('Your workouts. Your weights. Your profile.')}</div>
+      <div className="muted" style={{ marginBottom: 24 }}>Piattaforma Personal Trainer & Clienti</div>
+
+      {/* Two dedicated entry points for PT and Cliente */}
+      <div className="card" style={{ padding: '18px 16px', marginBottom: 20, textAlign: 'left', borderColor: 'var(--acc)' }}>
+        <div style={{ fontWeight: 600, fontSize: 13, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--acc)', marginBottom: 12 }}>
+          Accesso Rapido Demo
+        </div>
+        <Button
+          variant="primary"
+          icon="person"
+          onClick={loginAsTrainerDemo}
+          style={{ width: '100%', marginBottom: 10, justifyContent: 'center' }}
+        >
+          🏋️‍♂️ Accedi come Personal Trainer
+        </Button>
+        <Button
+          variant="secondary"
+          icon="dumbbell"
+          onClick={loginAsClientDemo}
+          style={{ width: '100%', justifyContent: 'center' }}
+        >
+          🏃‍♂️ Accedi come Cliente
+        </Button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', margin: '8px 0 16px', opacity: 0.4 }}>
+        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        <span style={{ margin: '0 10px', fontSize: 12 }}>oppure</span>
+        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+      </div>
+
       {webauthnOK() ? <>
-        <Button variant="primary" icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
+        <Button icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
         <div style={{ height: 10 }} />
         <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>
         <div style={{ height: 10 }} />
       </> : <div className="card small muted" style={{ textAlign: 'left' }}>{t("This browser doesn't support passkeys — you can still use openGym locally on this device.")}</div>}
       <Button variant="ghost" className="dim" onClick={() => setGuest(true)}>{t('Continue without account')}</Button>
-      <div className="dim small" style={{ marginTop: 26, lineHeight: 1.5 }}>{t('Passkeys use {0} — no passwords.', BIO)}<br />{t('Each profile keeps its own plan, workouts & body weight.')}</div>
+      <div className="dim small" style={{ marginTop: 20, lineHeight: 1.5 }}>
+        Accesso immediato senza password con Passkey o profili demo preconfigurati.
+      </div>
     </div>
   )
 }
