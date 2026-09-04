@@ -263,7 +263,10 @@ export const useStore = create((set, get) => {
       try { set({ config: await api('/api/config') }) } catch (e) { /* offline — assume nothing extra */ }
       try {
         const me = await api('/api/me')
-        get().setUser(me.user)
+        const u = me?.user || me
+        if (u && u.id) {
+          get().setUser(u)
+        }
         await get().pullState()
         // Re-stamp the reminder's timezone on every load — keeps it correct if you're travelling,
         // without needing to revisit Settings.

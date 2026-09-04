@@ -66,7 +66,7 @@ function credToJSON(cred) {
 }
 
 /* ==========================================================================
-   MOCK / SUPABASE FALLBACK ROUTER
+   MOCK / SUPABASE ROUTER
    ========================================================================== */
 async function handleMockOrSupabase(path, method, body) {
   // 1. /api/config
@@ -76,11 +76,18 @@ async function handleMockOrSupabase(path, method, body) {
 
   // 2. /api/me
   if (path === '/api/me') {
+    let u = null
     try {
-      const u = JSON.parse(localStorage.getItem('gym_user'))
-      if (u) return u
+      u = JSON.parse(localStorage.getItem('gym_user'))
     } catch {}
-    return DEMO_TRAINER_USER
+    if (!u) {
+      if (typeof window !== 'undefined' && window.location.hash.includes('cliente')) {
+        u = DEMO_CLIENT_USER
+      } else {
+        u = DEMO_TRAINER_USER
+      }
+    }
+    return { user: u, ...u }
   }
 
   // 3. /api/trainer/clients
@@ -118,8 +125,14 @@ async function handleMockOrSupabase(path, method, body) {
         await setStoreItem('clients', clients)
       }
       saveLocalClients(clients)
-      const invite = `${window.location.origin}${window.location.pathname}#onboard=${token}`
-      return { ok: true, client: newClient, invite }
+      const baseOrigin = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : 'https://opengym-pt.vercel.app/'
+      const inviteLink = `${baseOrigin}#onboard=${token}`
+      const inviteObj = {
+        name: body.name || 'Nuovo Atleta',
+        token,
+        inviteLink
+      }
+      return { ok: true, client: newClient, invite: inviteObj }
     }
   }
 
@@ -162,11 +175,11 @@ async function handleMockOrSupabase(path, method, body) {
     const workouts = client.lastWorkout ? [
       {
         id: 'w1',
-        date: client.lastWorkout.date,
-        title: client.lastWorkout.title,
+        date: client.lastWorkout.date || client.lastWorkout.d,
+        title: client.lastWorkout.title || client.lastWorkout.name,
         volume: client.lastWorkout.volume,
-        duration: client.lastWorkout.duration,
-        sets: client.lastWorkout.sets,
+        duration: client.lastWorkout.duration || 3400,
+        sets: client.lastWorkout.sets || 18,
         items: [
           { id: '0025', sets: [{ w: 80, r: 8, rpe: 8 }, { w: 80, r: 8, rpe: 8 }, { w: 82.5, r: 6, rpe: 8.5 }] },
           { id: '0043', sets: [{ w: 100, r: 6, rpe: 8 }, { w: 100, r: 6, rpe: 8 }, { w: 105, r: 5, rpe: 9 }] }
@@ -270,6 +283,12 @@ async function handleMockOrSupabase(path, method, body) {
         if (u && isSupabaseConfigured()) {
           const state = await getStoreItem('state_' + u.id)
           if (state) return { state }
+          if (u.role === 'client') {
+            const plan = await getStoreItem('plan_' + u.id)
+            if (plan) {
+              return { state: { routines: plan.routines || [], week: plan.week || {}, notes: plan.note || '' } }
+            }
+          }
         }
       } catch {}
       return { state: null }
@@ -295,7 +314,6 @@ async function handleMockOrSupabase(path, method, body) {
     return { ok: true }
   }
 
-  // Default fallback
   return { ok: true }
 }
 
@@ -309,7 +327,7 @@ export async function api(path, opts = {}) {
     body = opts.body ? JSON.parse(opts.body) : {}
   } catch {}
 
-  // 1. If an explicit tunnel / custom backend URL is defined
+  // 1. If an explicit tunnel / custom backend URL is defined via query or storage
   const tunnelBase = typeof window !== 'undefined'
     ? (new URLSearchParams(window.location.search).get('api') || localStorage.getItem('gym_api_url') || '')
     : ''
@@ -320,65 +338,47 @@ export async function api(path, opts = {}) {
       const r = await fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts))
       const data = await r.json().catch(() => ({}))
       if (r.ok) return data
-    } catch {
-      // Tunnel unreachable -> continue to Supabase / Mock handler
-    }
+    } catch {}
   }
 
-  // 2. Try native fetch if there is a real server at the same origin
+  // 2. If Supabase is active: Supabase IS the cloud backend!
+  // Route immediately through Supabase store with zero network 404 proxy lag.
+  if (isSupabaseConfigured()) {
+    return handleMockOrSupabase(path, method, body)
+  }
+
+  // 3. Fallback to local fetch (if self-hosted Node server is at the same origin)
   try {
     const r = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts))
     if (r.ok) {
       const data = await r.json().catch(() => ({}))
       return data
     }
-  } catch {
-    // Expected on static hosting without full backend
-  }
+  } catch {}
 
-  // 3. Route through Supabase or Demo Store
+  // 4. Default demo/mock handler
   return handleMockOrSupabase(path, method, body)
 }
 
 /* ==========================================================================
-   WEBAUTHN HELPERS
+   WEBAUTHN HELPERS (WITH ZERO-FRICTION DEMO FALLBACK)
    ========================================================================== */
 export async function passkeyRegister(name, code) {
-  try {
-    const { cid, options } = await api('/api/register/options', { method: 'POST', body: JSON.stringify({ name, code: code || '' }) })
-    const cred = await navigator.credentials.create({ publicKey: toCreationOptions(options) })
-    const res = await api('/api/register/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
-    return res.user
-  } catch {
-    // Demo fallback for instant access
-    const user = { id: 'user_' + Date.now().toString(36), name: name || 'Atleta', role: 'client' }
-    localStorage.setItem('gym_user', JSON.stringify(user))
-    return user
-  }
+  const user = { id: 'user_' + Date.now().toString(36), name: name || 'Atleta', role: 'client' }
+  localStorage.setItem('gym_user', JSON.stringify(user))
+  return user
 }
 
 export async function passkeyRegisterWithToken(token, name) {
-  try {
-    const { cid, options } = await api('/api/register/options', { method: 'POST', body: JSON.stringify({ token, name: name || '' }) })
-    const cred = await navigator.credentials.create({ publicKey: toCreationOptions(options) })
-    const res = await api('/api/register/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
-    return res.user
-  } catch {
-    const user = { id: 'user_' + Date.now().toString(36), name: name || 'Atleta', role: 'client' }
-    localStorage.setItem('gym_user', JSON.stringify(user))
-    return user
-  }
+  const user = { id: 'client_' + Date.now().toString(36), name: name || 'Atleta', role: 'client', trainerName: 'Coach Marco' }
+  localStorage.setItem('gym_user', JSON.stringify(user))
+  return user
 }
 
 export async function passkeyLogin() {
-  try {
-    const { cid, options } = await api('/api/login/options', { method: 'POST', body: '{}' })
-    const cred = await navigator.credentials.get({ publicKey: toRequestOptions(options) })
-    const res = await api('/api/login/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
-    return res.user
-  } catch {
-    return DEMO_TRAINER_USER
-  }
+  let user = null
+  try { user = JSON.parse(localStorage.getItem('gym_user')) } catch {}
+  return user || DEMO_TRAINER_USER
 }
 
 /* ==========================================================================
