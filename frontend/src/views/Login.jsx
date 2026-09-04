@@ -6,6 +6,7 @@ import { t } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { useState, useRef, useEffect } from 'react'
 import Icon from '../components/Icon.jsx'
+import Logo from '../components/Logo.jsx'
 import { Button } from '../components/ui.jsx'
 
 function parseOnboardToken() {
@@ -127,8 +128,12 @@ export default function Login() {
         <span>{isLight ? '🌙 Tema Scuro' : '☀️ Tema Chiaro'}</span>
       </button>
     </div>
-    <div style={{ fontSize: 54, display: 'flex', justifyContent: 'center', color: 'var(--acc)' }}><Icon name="dumbbell" /></div>
-    <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-.028em', margin: '10px 0 4px' }}>openGym</h1>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '24px 0 12px' }}>
+      <Logo size="xl" showText={true} badge="PRO" />
+      <div style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 8, letterSpacing: '0.02em' }}>
+        Personal Trainer & Athlete Platform
+      </div>
+    </div>
   </>
   const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
 

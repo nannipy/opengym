@@ -53,20 +53,52 @@
   --pad:16px;
   --icon-stroke:1.7;
 
-  /* motion */
+  /* fluid physics-based motion */
   --ease:cubic-bezier(.32,.72,0,1);
+  --spring:cubic-bezier(0.16, 1, 0.3, 1);
   --fast:140ms; --med:220ms;
+
+  /* glassmorphism & elevated surfaces */
+  --glass-bg: rgba(28, 28, 30, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-glow: 0 0 28px -4px rgba(163, 230, 53, 0.16);
+  --shadow-card: 0 4px 20px -2px rgba(0,0,0,0.22), 0 0 0 1px var(--glass-border);
 
   --sab:env(safe-area-inset-bottom,0px);
   --sat:env(safe-area-inset-top,0px);
 }
 
+@keyframes pulseGlow {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.18); opacity: 1; filter: drop-shadow(0 0 6px var(--acc)); }
+}
+
+@keyframes slideDownFade {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.96); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes badgeFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
 :root[data-theme="light"] {
-  --bg:        #f2f2f7;
-  --bg-el:     #f7f7fa;
+  --bg:        #f8fafc;
+  --bg-el:     #ffffff;
   --surface:   #ffffff;
-  --surface-2: #ececef;
-  --surface-3: #e3e3e8;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
+
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(0, 0, 0, 0.07);
+  --glass-glow: 0 0 28px -4px rgba(34, 197, 94, 0.18);
+  --shadow-card: 0 4px 20px -2px rgba(0,0,0,0.06), 0 0 0 1px var(--glass-border);
 
   --label:     #000000;
   --label-2:   rgba(60,60,67,.60);
@@ -202,7 +234,17 @@ h4.sec{
 .card{
   background:var(--surface);border-radius:var(--r-card);
   padding:16px;margin-bottom:12px;
+  border:1px solid var(--glass-border);
+  box-shadow:var(--shadow-card);
+  transition:transform var(--fast) var(--spring), box-shadow var(--fast) var(--spring), border-color var(--fast);
 }
+.card.interactive{cursor:pointer}
+.card.interactive:hover{
+  transform:translateY(-2px);
+  border-color:color-mix(in srgb, var(--acc) 30%, var(--glass-border));
+  box-shadow:0 8px 24px -4px rgba(0,0,0,0.28);
+}
+.card.interactive:active{transform:scale(0.985)}
 .card .big{font-size:30px;font-weight:600;letter-spacing:-.026em;line-height:1.1}
 
 /* ------------------------------------------------------ inset group list -- */
@@ -211,13 +253,13 @@ h4.sec{
   font-size:13px;font-weight:400;color:var(--label-2);
   letter-spacing:-.004em;padding:0 4px 7px;display:block;
 }
-.sect-b{background:var(--surface);border-radius:var(--r-card);overflow:hidden}
+.sect-b{background:var(--surface);border-radius:var(--r-card);overflow:hidden;border:1px solid var(--glass-border)}
 .sect-f{font-size:13px;color:var(--label-2);padding:7px 4px 0;line-height:1.38}
 
 .lrow{
   display:flex;align-items:center;gap:12px;width:100%;text-align:left;
   padding:11px 14px;min-height:46px;position:relative;color:var(--label);
-  background:none;
+  background:none;transition:background var(--fast) var(--spring);
 }
 /* hairline starts after the icon rail so the list reads as one object */
 .lrow+.lrow::before{
@@ -237,10 +279,6 @@ h4.sec{
 .lrow-c{color:var(--label);font-size:15px;flex:none;--icon-stroke:2.4}
 .lrow-k{color:var(--acc);font-size:17px;flex:none;--icon-stroke:2.4}
 .lrow.danger,.lrow.danger .lrow-t{color:var(--red)}
-/* an (i) before a row's control: painted small and dim so the control stays the loud thing,
-   but with a finger-sized target like everything else — the padding is the hit area and the
-   vertical negative margin keeps it from making the row taller. The horizontal ones pull the
-   hit area back under the row's own 12px gap instead of adding to it. */
 .helpbtn{
   color:var(--label-3);font-size:16px;background:none;line-height:0;flex:none;
   margin:-11px -2px -11px -4px;padding:11px 4px;
@@ -252,13 +290,20 @@ h4.sec{
   display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;
   padding:14px 18px;border-radius:var(--r);font-size:17px;font-weight:600;
   letter-spacing:-.012em;background:var(--surface-2);color:var(--label);
-  transition:transform var(--fast) var(--ease),background var(--fast),opacity var(--fast);
+  border:1px solid transparent;
+  transition:transform var(--fast) var(--spring),background var(--fast),box-shadow var(--fast),opacity var(--fast);
 }
 .btn .icn{font-size:19px}
-.btn:active{transform:scale(.975)}
-.btn.primary{background:var(--acc);color:var(--on-acc)}
-.btn.primary:active{background:var(--acc-2)}
-.btn.tinted{background:var(--acc-soft);color:var(--acc)}
+.btn:active{transform:scale(.97)}
+.btn.primary{
+  background:var(--acc);color:var(--on-acc);
+  box-shadow:0 4px 14px -2px color-mix(in srgb, var(--acc) 45%, transparent);
+}
+.btn.primary:hover{
+  box-shadow:0 6px 20px -2px color-mix(in srgb, var(--acc) 65%, transparent);
+}
+.btn.primary:active{background:var(--acc-2);transform:scale(.97)}
+.btn.tinted{background:var(--acc-soft);color:var(--acc);border:1px solid var(--acc-line)}
 .btn.danger{background:color-mix(in srgb,var(--red) 15%,transparent);color:var(--red)}
 .btn.ghost,.btn.plain{background:none;color:var(--acc);font-weight:400}
 .btn.ghost:active,.btn.plain:active{background:var(--surface-2)}

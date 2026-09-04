@@ -7,6 +7,7 @@ import { glyphOf } from '../lib/glyphs.js'
 import { startFlow, exercisePicker } from '../sheets.jsx'
 import { openChatSheet } from '../components/ChatSheet.jsx'
 import Icon from '../components/Icon.jsx'
+import Logo from '../components/Logo.jsx'
 import { Button } from '../components/ui.jsx'
 
 export default function AssignedPlanView({ onSwitchToCalendar }) {
@@ -80,6 +81,11 @@ export default function AssignedPlanView({ onSwitchToCalendar }) {
 
   return (
     <div className="assigned-plan-view" style={{ maxWidth: 640, margin: '0 auto' }}>
+      {/* Brand Header */}
+      <div style={{ marginBottom: 14 }}>
+        <Logo size="sm" badge="SCHEDA ATLETA" />
+      </div>
+
       {/* Header Banner PT */}
       <div
         className="card"
