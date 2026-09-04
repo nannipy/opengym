@@ -99,7 +99,34 @@ export default function Login() {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
   }
+  const S = useStore(s => s.S)
+  const update = useStore(s => s.update)
+  const isLight = S.theme === 'light'
+  const toggleTheme = () => {
+    update(s => { s.theme = isLight ? 'dark' : 'light' })
+  }
+
   const head = <>
+    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: -20, paddingRight: 4 }}>
+      <button
+        onClick={toggleTheme}
+        style={{
+          background: 'var(--surface-2)',
+          border: '1px solid var(--sep-op)',
+          borderRadius: 16,
+          padding: '4px 10px',
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--label-2)',
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 5
+        }}
+      >
+        <span>{isLight ? '🌙 Tema Scuro' : '☀️ Tema Chiaro'}</span>
+      </button>
+    </div>
     <div style={{ fontSize: 54, display: 'flex', justifyContent: 'center', color: 'var(--acc)' }}><Icon name="dumbbell" /></div>
     <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-.028em', margin: '10px 0 4px' }}>openGym</h1>
   </>

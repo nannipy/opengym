@@ -158,37 +158,40 @@ export const trainerGetClient = async id => {
       name: 'Cliente Demo',
       plan: { routines: [], week: [], note: '' }
     }
+    const weights = client.weights || [
+      { d: '2026-08-15', w: 78.5 },
+      { d: '2026-08-22', w: 78.0 },
+      { d: '2026-08-29', w: 77.4 },
+      { d: '2026-09-04', w: 77.1 }
+    ]
+    const workouts = client.lastWorkout ? [
+      {
+        id: 'w1',
+        date: client.lastWorkout.date,
+        title: client.lastWorkout.title,
+        volume: client.lastWorkout.volume,
+        duration: client.lastWorkout.duration,
+        sets: client.lastWorkout.sets,
+        items: [
+          { id: '0025', sets: [{ w: 80, r: 8, rpe: 8 }, { w: 80, r: 8, rpe: 8 }, { w: 82.5, r: 6, rpe: 8.5 }] },
+          { id: '0043', sets: [{ w: 100, r: 6, rpe: 8 }, { w: 100, r: 6, rpe: 8 }, { w: 105, r: 5, rpe: 9 }] }
+        ]
+      },
+      {
+        id: 'w2',
+        date: client.lastWorkout.date - 2 * 86400000,
+        title: 'Sessione precedente',
+        volume: Math.round(client.lastWorkout.volume * 0.95),
+        duration: 3300,
+        sets: 16
+      }
+    ] : []
+
     return {
       client,
       plan: client.plan || { routines: [], week: [], note: '' },
-      workouts: [
-        {
-          id: 'w1',
-          date: Date.now() - 2 * 3600000,
-          title: 'Giorno A - Spinta',
-          volume: 7850,
-          duration: 3420,
-          sets: 18,
-          items: [
-            { id: '0025', sets: [{ w: 80, r: 8, rpe: 8 }, { w: 80, r: 8, rpe: 8 }, { w: 82.5, r: 6, rpe: 8.5 }] },
-            { id: '0043', sets: [{ w: 100, r: 6, rpe: 8 }, { w: 100, r: 6, rpe: 8 }, { w: 105, r: 5, rpe: 9 }] }
-          ]
-        },
-        {
-          id: 'w2',
-          date: Date.now() - 3 * 86400000,
-          title: 'Giorno B - Trazione',
-          volume: 8200,
-          duration: 3600,
-          sets: 19
-        }
-      ],
-      weights: [
-        { d: '2026-08-15', w: 80.2 },
-        { d: '2026-08-22', w: 79.7 },
-        { d: '2026-08-29', w: 79.1 },
-        { d: '2026-09-04', w: 78.5 }
-      ]
+      workouts,
+      weights
     }
   }
 }

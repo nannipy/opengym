@@ -99,20 +99,25 @@ export default function Home() {
 
     {/* Trainer Plan Banner for Client */}
     {isClient && (
-      <div className="card" style={{ borderColor: 'var(--acc)', padding: '12px 14px', marginBottom: 12 }}>
-        <div className="row between" style={{ marginBottom: S.notes ? 6 : 0 }}>
-          <div className="row" style={{ gap: 8 }}>
-            <span className="tag acc" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 8px', fontSize: 12 }}>
+      <div className="card" style={{ borderColor: 'var(--acc)', padding: '14px 16px', marginBottom: 14 }}>
+        <div className="row between" style={{ alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+            <span className="tag acc" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 8px', fontSize: 12, fontWeight: 700 }}>
               <Icon name="clipboard" style={{ fontSize: 13 }} />
-              {t('Scheda assegnata dal Trainer')}
+              Scheda: {user?.trainerName || 'Coach Marco'}
             </span>
           </div>
-          <Button size="sm" variant="tinted" icon="chat" onClick={() => openChatSheet()}>
-            {t('Chat PT')}
-          </Button>
+          <div className="row" style={{ gap: 6 }}>
+            <Button size="sm" variant="secondary" onClick={() => nav('/plan')}>
+              Vedi Scheda 📋
+            </Button>
+            <Button size="sm" variant="tinted" icon="chat" onClick={() => openChatSheet()}>
+              Chat PT
+            </Button>
+          </div>
         </div>
         {S.notes && (
-          <div className="small muted" style={{ marginTop: 6, fontStyle: 'italic', lineHeight: 1.4 }}>
+          <div className="small muted" style={{ marginTop: 8, fontStyle: 'italic', lineHeight: 1.4 }}>
             📝 “{S.notes}”
           </div>
         )}

@@ -1,4 +1,4 @@
-// Demo data for static Vercel hosting & offline demo experience
+// Rich demo data for static Vercel hosting & offline demo experience
 export const DEMO_TRAINER_USER = {
   id: 'trainer-demo',
   name: 'Coach Marco (PT)',
@@ -56,19 +56,25 @@ export const INITIAL_DEMO_CLIENTS = [
         },
         {
           id: 'r_legs_c',
-          name: 'Giorno C - Spalle & Gambe Focus',
-          note: 'Volume extra su deltoidi laterali e polpacci.',
+          name: 'Giorno C - Spalle & Braccia Focus',
+          note: 'Volume extra su deltoidi e braccia.',
           exercises: [
             { id: '0085', name: 'Barbell Overhead Press', sets: 4, reps: '6-8', rpe: 8, rest: 150 },
             { id: '0585', name: 'Leg Press', sets: 4, reps: '10-12', rpe: 8, rest: 120 },
-            { id: '0586', name: 'Leg Curl', sets: 3, reps: '12-15', rpe: 9, rest: 90 },
-            { id: '0605', name: 'Calf Press on Leg Press', sets: 4, reps: '15', rpe: 9, rest: 60 }
+            { id: '0586', name: 'Leg Curl', sets: 3, reps: '12-15', rpe: 9, rest: 90 }
           ]
         }
       ],
       week: [0, null, 1, null, 2, null, null],
-      note: 'Programma Ipertrofia Mesociclo 2. Carica progressivo ogni settimana sui primi 2 esercizi.'
-    }
+      note: 'Programma Ipertrofia Mesociclo 2. Carico progressivo e tecnica controllata.'
+    },
+    weights: [
+      { d: '2026-08-01', w: 80.5 },
+      { d: '2026-08-10', w: 80.0 },
+      { d: '2026-08-20', w: 79.4 },
+      { d: '2026-08-30', w: 78.8 },
+      { d: '2026-09-04', w: 78.2 }
+    ]
   },
   {
     id: 'client-giulia',
@@ -77,29 +83,109 @@ export const INITIAL_DEMO_CLIENTS = [
     workoutsCount: 18,
     totalVolume: 88200,
     lastWorkout: {
-      date: Date.now() - 35 * 60000,
-      title: 'Lower Body & Core',
+      date: Date.now() - 25 * 60000,
+      title: 'Lower Body & Glutei Focus',
       volume: 5400,
       duration: 2100,
       sets: 12
     },
-    live: true, // Currently working out!
-    notes: 'Focus su attivazione glutei e postura schiena.',
+    live: true, // Currently working out in gym!
+    notes: 'Ottima attivazione glutei. Monitorare stacco a gambe tese.',
     plan: {
       routines: [
         {
           id: 'r_lower_g',
-          name: 'Lower Body & Core',
-          note: 'Massima contrazione in cima all’Hip Thrust.',
+          name: 'Giorno 1 - Glutei & Catena Posteriore',
+          note: 'Contrazione di picco in cima ad ogni rep.',
           exercises: [
-            { id: '0043', name: 'Barbell Full Squat', sets: 4, reps: '8-10', rpe: 8, rest: 120 },
-            { id: '0585', name: 'Leg Press', sets: 3, reps: '12', rpe: 8, rest: 90 },
+            { id: '0043', name: 'Barbell Full Squat', sets: 4, reps: '8-10', rpe: 8, rest: 120, note: 'Discesa in 3 secondi' },
+            { id: '0585', name: 'Leg Press', sets: 3, reps: '12', rpe: 8, rest: 90, note: 'Piedi alti sulla pedana' },
+            { id: '0586', name: 'Leg Curl', sets: 3, reps: '12-15', rpe: 9, rest: 90 },
             { id: '0003', name: 'Air Bike', sets: 3, reps: '20', rpe: 8, rest: 60 }
+          ]
+        },
+        {
+          id: 'r_upper_g',
+          name: 'Giorno 2 - Upper Body & Core',
+          note: 'Tono spalle e dorso per postura ideale.',
+          exercises: [
+            { id: '0426', name: 'Dumbbell Incline Bench Press', sets: 3, reps: '10', rpe: 8, rest: 90 },
+            { id: '0027', name: 'Barbell Bent Over Row', sets: 3, reps: '10-12', rpe: 8, rest: 90 },
+            { id: '0334', name: 'Dumbbell Lateral Raise', sets: 3, reps: '15', rpe: 9, rest: 60 }
+          ]
+        }
+      ],
+      week: [0, null, 1, null, 0, null, null],
+      note: 'Scheda Tonificazione & Glutei. Focus su tecnica e recupero 90 secondi.'
+    },
+    weights: [
+      { d: '2026-08-05', w: 60.2 },
+      { d: '2026-08-18', w: 59.7 },
+      { d: '2026-09-02', w: 59.1 }
+    ]
+  },
+  {
+    id: 'client-alessandro',
+    name: 'Alessandro Moretti',
+    createdAt: Date.now() - 90 * 86400000,
+    workoutsCount: 45,
+    totalVolume: 284000,
+    lastWorkout: {
+      date: Date.now() - 22 * 3600000,
+      title: 'Heavy Bench & Upper Power',
+      volume: 11400,
+      duration: 4100,
+      sets: 22
+    },
+    live: false,
+    notes: 'Panca piana a 115kg superata con facilità. Prossimo test massimale tra 2 settimane.',
+    plan: {
+      routines: [
+        {
+          id: 'r_power_bench',
+          name: 'Panca Pesante & Accessori',
+          note: 'Arco compatto, leg drive attivo su ogni ripetizione.',
+          exercises: [
+            { id: '0025', name: 'Barbell Bench Press', sets: 5, reps: '3-5', rpe: 9, rest: 180, note: 'Serie target 115kg' },
+            { id: '0085', name: 'Barbell Overhead Press', sets: 4, reps: '6', rpe: 8, rest: 150 },
+            { id: '0426', name: 'Dumbbell Incline Bench Press', sets: 4, reps: '8', rpe: 8, rest: 120 }
           ]
         }
       ],
       week: [0, null, 0, null, 0, null, null],
-      note: 'Progressione glutei & ricomposizione corporea.'
+      note: 'Ciclo Powerbuilding Avanzato - RIR 1 sui fondamentali.'
+    }
+  },
+  {
+    id: 'client-sara',
+    name: 'Sara Conti',
+    createdAt: Date.now() - 25 * 86400000,
+    workoutsCount: 14,
+    totalVolume: 62400,
+    lastWorkout: {
+      date: Date.now() - 1 * 86400000,
+      title: 'Full Body Ricomposizione A',
+      volume: 4900,
+      duration: 2700,
+      sets: 15
+    },
+    live: false,
+    notes: 'Costanza esemplare. Peso in calo costante (-2.7kg) con aumento di forza percepita.',
+    plan: {
+      routines: [
+        {
+          id: 'r_sara_fb',
+          name: 'Full Body Circuit & Metcon',
+          note: 'Recuperi brevi, intensità aerobica controllata.',
+          exercises: [
+            { id: '0043', name: 'Barbell Full Squat', sets: 3, reps: '10', rpe: 7, rest: 90 },
+            { id: '0001', name: '3/4 Sit-up', sets: 4, reps: '15', rpe: 8, rest: 45 },
+            { id: '0003', name: 'Air Bike', sets: 3, reps: '25', rpe: 8, rest: 45 }
+          ]
+        }
+      ],
+      week: [0, null, 0, null, 0, null, null],
+      note: 'Ricomposizione & Definizione. Mantieni l’apporto idrico sopra 2.5L.'
     }
   },
   {
@@ -110,17 +196,74 @@ export const INITIAL_DEMO_CLIENTS = [
     totalVolume: 195000,
     lastWorkout: {
       date: Date.now() - 3 * 86400000,
-      title: 'Full Body A',
+      title: 'Giorno B - Stacco & Dorso',
       volume: 9200,
       duration: 3900,
       sets: 21
     },
     live: false,
-    notes: 'Fase di forza completata con successo, passa a ipertrofia.',
+    notes: 'Ha chiesto di sostituire le croci ai cavi con manubri se i cavi sono occupati.',
+    plan: {
+      routines: [
+        {
+          id: 'r_matteo_back',
+          name: 'Stacco & Dorso Spessore',
+          note: 'Occhio alla lordosi lombare sulla fase di ripartenza.',
+          exercises: [
+            { id: '0739', name: 'Barbell Deadlift', sets: 4, reps: '5', rpe: 8, rest: 180 },
+            { id: '0027', name: 'Barbell Bent Over Row', sets: 4, reps: '8', rpe: 8, rest: 120 },
+            { id: '1323', name: 'Pull-up', sets: 3, reps: '8', rpe: 9, rest: 120 }
+          ]
+        }
+      ],
+      week: [0, null, 0, null, null, null, null],
+      note: 'Mesociclo Densità. In transizione a scheda 4 giorni.'
+    }
+  },
+  {
+    id: 'client-elena',
+    name: 'Elena Ferri',
+    createdAt: Date.now() - 14 * 86400000,
+    workoutsCount: 9,
+    totalVolume: 38500,
+    lastWorkout: {
+      date: Date.now() - 4 * 86400000,
+      title: 'Postura & Core Focus',
+      volume: 3800,
+      duration: 2400,
+      sets: 14
+    },
+    live: false,
+    notes: 'Ottimi miglioramenti sulla mobilità delle anche e della caviglia.',
+    plan: {
+      routines: [
+        {
+          id: 'r_elena_post',
+          name: 'Mobilità & Tonificazione',
+          note: 'Esegui il riscaldamento articolare per 8 minuti prima dei carichi.',
+          exercises: [
+            { id: '1512', name: 'All Fours Squad Stretch', sets: 3, reps: '30s', rpe: 6, rest: 30 },
+            { id: '0002', name: '45° Side Bend', sets: 3, reps: '12', rpe: 7, rest: 60 }
+          ]
+        }
+      ],
+      week: [0, null, 0, null, null, null, null],
+      note: 'Mobilità e riequilibrio muscolare.'
+    }
+  },
+  {
+    id: 'client-federico',
+    name: 'Federico De Luca',
+    createdAt: Date.now() - 1 * 86400000,
+    workoutsCount: 0,
+    totalVolume: 0,
+    lastWorkout: null,
+    live: false,
+    notes: 'Nuovo atleta registrato con Passkey. In attesa della prima anamnesi e scheda.',
     plan: {
       routines: [],
       week: [],
-      note: 'In attesa di nuovo mesociclo di volume.'
+      note: 'Da assegnare template scheda iniziale.'
     }
   }
 ]
@@ -138,7 +281,7 @@ export const INITIAL_DEMO_TEMPLATES = [
         name: 'Giorno A - Push (Petto, Spalle, Tricipiti)',
         note: 'Recuperi completi sui composti, serie a cedimento solo sull’ultimo esercizio.',
         exercises: [
-          { id: '0025', name: 'Barbell Bench Press', sets: 4, reps: '6-8', rpe: 8, rest: 150 },
+          { id: '0025', name: 'Barbell Bench Press', sets: 4, reps: '6-8', rpe: 8, rest: 150, note: 'Fermo al petto 1s' },
           { id: '0426', name: 'Dumbbell Incline Bench Press', sets: 3, reps: '8-10', rpe: 8, rest: 120 },
           { id: '0085', name: 'Barbell Overhead Press', sets: 3, reps: '8-10', rpe: 8, rest: 120 },
           { id: '0334', name: 'Dumbbell Lateral Raise', sets: 4, reps: '12-15', rpe: 9, rest: 90 },
@@ -210,7 +353,15 @@ export const INITIAL_DEMO_CHATS = {
   ],
   'client-giulia': [
     { sender: 'trainer', text: 'Ciao Giulia, oggi lower body con focus hip thrust!', ts: Date.now() - 5 * 3600000 },
-    { sender: 'client', text: 'Ciao Coach! Sto per iniziare ora la sessione 🔥', ts: Date.now() - 35 * 60000 }
+    { sender: 'client', text: 'Ciao Coach! Sto per iniziare ora la sessione 🔥', ts: Date.now() - 25 * 60000 }
+  ],
+  'client-alessandro': [
+    { sender: 'client', text: 'Coach la panca a 115kg è salita fluida, RPE 8.5!', ts: Date.now() - 21 * 3600000 },
+    { sender: 'trainer', text: 'Visto il video, traiettoria perfetta e gomiti ben serrati. Settimana prossima proviamo 117.5kg!', ts: Date.now() - 20 * 3600000 }
+  ],
+  'client-sara': [
+    { sender: 'client', text: 'Coach peso stamattina a 61.8kg! Mi vedo molto più tonica sulle gambe.', ts: Date.now() - 28 * 3600000 },
+    { sender: 'trainer', text: 'Bravissima Sara! Il deficit moderato e i carichi costanti stanno funzionando alla grande.', ts: Date.now() - 27 * 3600000 }
   ]
 }
 
@@ -265,4 +416,22 @@ export function appendLocalChat(clientId, message) {
   } catch {
     return []
   }
+}
+
+export function setupClientDemoState(useStoreState) {
+  const clientData = INITIAL_DEMO_CLIENTS[0] // Marco Rossi
+  localStorage.setItem('gym_user', JSON.stringify(DEMO_CLIENT_USER))
+  localStorage.removeItem('gym_guest')
+
+  useStoreState.update(s => {
+    s.plan = clientData.plan
+    s.targetWeight = 78
+    s.weightUnit = 'kg'
+    s.theme = s.theme || 'light' // Default to light or keep
+  })
+}
+
+export function setupTrainerDemoState(useStoreState) {
+  localStorage.setItem('gym_user', JSON.stringify(DEMO_TRAINER_USER))
+  localStorage.removeItem('gym_guest')
 }
