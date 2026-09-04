@@ -1,8 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 
+const DEFAULT_URL = 'https://kiriqpvzvpbrwylioqdg.supabase.co'
+const DEFAULT_KEY = 'sb_publishable_ypS70IuhlT6uTQSz08YgAA_9ju9QCKu'
+
 // Detect Supabase credentials from query params, localStorage, or Vite environment variables
 function getCredentials() {
-  if (typeof window === 'undefined') return { url: '', key: '' }
+  if (typeof window === 'undefined') return { url: DEFAULT_URL, key: DEFAULT_KEY }
 
   const urlParams = new URLSearchParams(window.location.search)
   const qUrl = urlParams.get('s_url') || urlParams.get('supabase_url')
@@ -18,12 +21,12 @@ function getCredentials() {
   const url = qUrl ||
     (typeof localStorage !== 'undefined' ? localStorage.getItem('gym_supabase_url') : '') ||
     import.meta.env.VITE_SUPABASE_URL ||
-    ''
+    DEFAULT_URL
 
   const key = qKey ||
     (typeof localStorage !== 'undefined' ? localStorage.getItem('gym_supabase_key') : '') ||
     import.meta.env.VITE_SUPABASE_ANON_KEY ||
-    ''
+    DEFAULT_KEY
 
   return { url: url.trim(), key: key.trim() }
 }

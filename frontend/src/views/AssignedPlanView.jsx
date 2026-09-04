@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
+import { api, subscribeStoreItem } from '../lib/api.js'
 import { exOr, imgSrc } from '../lib/exercises.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { startFlow, exercisePicker } from '../sheets.jsx'
@@ -16,6 +17,30 @@ export default function AssignedPlanView({ onSwitchToCalendar }) {
 
   const routines = S.routines || []
   const [activeTab, setActiveTab] = useState(0)
+
+  useEffect(() => {
+    const clientId = user?.id || 'client-marco'
+    api('/api/trainer/client/' + clientId).then(res => {
+      if (res?.plan?.routines?.length) {
+        update(s => {
+          s.routines = res.plan.routines
+          if (res.plan.week) s.week = res.plan.week
+          if (res.plan.note) s.trainerNote = res.plan.note
+        })
+      }
+    }).catch(() => {})
+
+    const unsub = subscribeStoreItem('plan_' + clientId, newPlan => {
+      if (newPlan?.routines?.length) {
+        update(s => {
+          s.routines = newPlan.routines
+          if (newPlan.week) s.week = newPlan.week
+          if (newPlan.note) s.trainerNote = newPlan.note
+        })
+      }
+    })
+    return () => unsub && unsub()
+  }, [user?.id])
 
   if (!routines.length) {
     return (
