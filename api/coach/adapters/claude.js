@@ -5,8 +5,20 @@
  * through the child environment, and keeps the model in a text-in / JSON-out lane: no tools,
  * no settings files, no MCP servers, and no persisted session history. */
 import { spawn } from 'node:child_process';
-import { query } from '@anthropic-ai/claude-agent-sdk';
 import { unprivilegedIds } from './spawn.js';
+
+let sdkQuery = null;
+async function getQuery() {
+  if (!sdkQuery) {
+    try {
+      const mod = await import('@anthropic-ai/claude-agent-sdk');
+      sdkQuery = mod.query;
+    } catch {
+      sdkQuery = null;
+    }
+  }
+  return sdkQuery;
+}
 
 const SDK_VERSION = 'Claude Agent SDK 0.3.220';
 const OUTPUT_CAP = 4 * 1024 * 1024;
@@ -45,6 +57,8 @@ export default {
     }, timeoutMs);
 
     try {
+      const query = await getQuery();
+      if (!query) throw new Error('Claude Agent SDK not available');
       for await (const message of query({
         prompt,
         options: {

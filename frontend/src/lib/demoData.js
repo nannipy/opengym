@@ -427,6 +427,7 @@ export function setupClientDemoState(useStoreState) {
     s.plan = clientData.plan
     s.targetWeight = 78
     s.weightUnit = 'kg'
+    s.lang = 'it'
     s.theme = s.theme || 'light' // Default to light or keep
   })
 }
