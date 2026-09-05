@@ -6,17 +6,17 @@ import { fmtDate, fmtNum, fmtVol, fmtDur, DAYN } from '../../lib/format.js'
 import { workoutVolume, setsDone } from '../../lib/history.js'
 import { glyphOf } from '../../lib/glyphs.js'
 import { exOr } from '../../lib/exercises.js'
-import { Button } from '../../components/ui.jsx'
+import { Button, Segmented } from '../../components/ui.jsx'
 import Icon from '../../components/Icon.jsx'
 import ClientPlanEditor from './ClientPlanEditor.jsx'
 import ChatView from './ChatView.jsx'
 
-export default function ClientDetailView({ clientId, onBack }) {
+export default function ClientDetailView({ clientId, onBack, initialTab = 'plan' }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editingPlan, setEditingPlan] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState('plan') // 'plan' | 'workouts' | 'stats'
+  const [activeTab, setActiveTab] = useState(initialTab) // 'plan' | 'workouts' | 'stats'
 
   const templates = useStore(s => s.templates)
   const loadTemplates = useStore(s => s.loadTemplates)
@@ -141,28 +141,16 @@ export default function ClientDetailView({ clientId, onBack }) {
       </div>
 
       {/* Tab navigazione interna cliente */}
-      <div className="chips" style={{ margin: '14px 0 16px' }}>
-        <button
-          className={'chip' + (activeTab === 'plan' ? ' on' : '')}
-          onClick={() => setActiveTab('plan')}
-        >
-          <Icon name="calendar" style={{ display: 'inline', marginRight: 4 }} />
-          Scheda & Note
-        </button>
-        <button
-          className={'chip' + (activeTab === 'workouts' ? ' on' : '')}
-          onClick={() => setActiveTab('workouts')}
-        >
-          <Icon name="history" style={{ display: 'inline', marginRight: 4 }} />
-          Storico Allenamenti ({workouts.length})
-        </button>
-        <button
-          className={'chip' + (activeTab === 'stats' ? ' on' : '')}
-          onClick={() => setActiveTab('stats')}
-        >
-          <Icon name="chart" style={{ display: 'inline', marginRight: 4 }} />
-          Pesate Corporee ({bodyweight.length})
-        </button>
+      <div style={{ margin: '16px 0 18px' }}>
+        <Segmented
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            { value: 'plan', label: '📋 Scheda' },
+            { value: 'workouts', label: `🏋️ Storico (${workouts.length})` },
+            { value: 'stats', label: `⚖️ Peso (${bodyweight.length})` }
+          ]}
+        />
       </div>
 
       {/* Tab: Scheda & Note */}
@@ -235,7 +223,7 @@ export default function ClientDetailView({ clientId, onBack }) {
                         <span className="tag">{r.ex?.length || 0} esercizi</span>
                       </div>
                       <div className="small dim" style={{ paddingLeft: 26 }}>
-                        {(r.ex || []).map(e => e.id).slice(0, 5).join(', ')}
+                        {(r.ex || []).map(e => exOr(e.id).n).slice(0, 5).join(' · ')}
                         {(r.ex || []).length > 5 ? '…' : ''}
                       </div>
                     </div>

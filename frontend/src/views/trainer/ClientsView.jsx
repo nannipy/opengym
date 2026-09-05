@@ -23,8 +23,10 @@ export default function ClientsView() {
   const openSheet = useUI(s => s.openSheet)
   const toast = useUI(s => s.toast)
 
-  const [selectedClientId, setSelectedClientId] = useState(null)
+  const [selectedClientMeta, setSelectedClientMeta] = useState(null) // { id, tab }
   const [chatClient, setChatClient] = useState(null)
+  const [search, setSearch] = useState('')
+  const [filterTab, setFilterTab] = useState('all') // 'all' | 'live'
 
   useEffect(() => {
     loadClients()
@@ -36,11 +38,12 @@ export default function ClientsView() {
     openSheet(close => <NewClientSheet close={close} onCreated={() => loadClients()} />)
   }
 
-  if (selectedClientId) {
+  if (selectedClientMeta) {
     return (
       <ClientDetailView
-        clientId={selectedClientId}
-        onBack={() => setSelectedClientId(null)}
+        clientId={selectedClientMeta.id}
+        initialTab={selectedClientMeta.tab || 'plan'}
+        onBack={() => setSelectedClientMeta(null)}
       />
     )
   }
@@ -56,28 +59,40 @@ export default function ClientsView() {
   const liveClients = (clients || []).filter(c => c.live)
   const totalWorkouts = (clients || []).reduce((acc, c) => acc + (c.workoutsCount || 0), 0)
 
+  // Filter clients
+  const filteredClients = (clients || []).filter(c => {
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      if (!c.name.toLowerCase().includes(q)) return false
+    }
+    if (filterTab === 'live') {
+      return !!c.live
+    }
+    return true
+  })
+
   return (
     <div className="narrow">
       {/* Brand Header */}
-      <div style={{ marginBottom: 20, paddingTop: 4 }}>
-        <div className="row between" style={{ alignItems: 'center', marginBottom: 10 }}>
+      <div style={{ marginBottom: 18, paddingTop: 4 }}>
+        <div className="row between" style={{ alignItems: 'center', marginBottom: 8 }}>
           <Logo size="md" badge="PT PRO" />
           <Button variant="primary" size="sm" icon="plus" onClick={openNewClientModal}>
             Nuovo Atleta
           </Button>
         </div>
         <div className="sub" style={{ fontSize: 13, color: 'var(--label-2)', letterSpacing: '-0.01em' }}>
-          {clients ? `${clients.length} atleti seguiti · ${totalWorkouts} allenamenti completati` : 'Caricamento atleti…'}
+          {clients ? `${clients.length} atleti seguiti · ${totalWorkouts} sessioni registrate` : 'Caricamento atleti…'}
         </div>
       </div>
 
-      {/* Tiles riassuntive del Trainer */}
-      <div className="tiles" style={{ marginBottom: 18 }}>
-        <div className="tile" style={{ border: '1px solid var(--glass-border)', transition: 'transform 0.2s var(--spring)' }}>
+      {/* KPI Tiles */}
+      <div className="tiles" style={{ marginBottom: 16 }}>
+        <div className="tile" style={{ border: '1px solid var(--glass-border)' }}>
           <div className="l"><Icon name="person" /> Atleti Totali</div>
           <div className="v">{clients ? clients.length : '—'}</div>
         </div>
-        <div className="tile" style={{ border: '1px solid var(--glass-border)', transition: 'transform 0.2s var(--spring)' }}>
+        <div className="tile" style={{ border: '1px solid var(--glass-border)' }}>
           <div className="l"><Icon name="play" /> In Allenamento</div>
           <div className="v" style={{ color: liveClients.length ? 'var(--acc)' : undefined, display: 'flex', alignItems: 'center', gap: 6 }}>
             {liveClients.length > 0 && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 8px var(--green)', animation: 'pulseGlow 2s infinite' }} />}
@@ -86,182 +101,263 @@ export default function ClientsView() {
         </div>
       </div>
 
-      {/* Banner Allenamento in Corso (Live) */}
+      {/* Live in-gym banner */}
       {liveClients.length > 0 && (
         <div
           className="card"
           style={{
             borderColor: 'var(--acc)',
-            background: 'color-mix(in srgb, var(--acc) 6%, var(--surface))',
-            marginBottom: 18,
-            boxShadow: '0 4px 20px -2px rgba(163, 230, 53, 0.2)'
+            background: 'linear-gradient(135deg, color-mix(in srgb, var(--acc) 10%, var(--surface)), var(--surface))',
+            marginBottom: 16,
+            boxShadow: 'var(--glass-glow)'
           }}
         >
-          <h2 className="row" style={{ margin: '0 0 10px', gap: 8, color: 'var(--acc)', fontWeight: 700, fontSize: 14 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 8px var(--green)', animation: 'pulseGlow 1.5s infinite' }} />
-            In Allenamento Adesso
-          </h2>
-          <div className="list" style={{ gap: 8 }}>
+          <div className="row between" style={{ marginBottom: 10, alignItems: 'center' }}>
+            <h2 className="row" style={{ margin: 0, gap: 7, color: 'var(--acc)', fontWeight: 700, fontSize: 13, textTransform: 'uppercase' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 8px var(--green)', animation: 'pulseGlow 1.5s infinite' }} />
+              In Palestra Ora ({liveClients.length})
+            </h2>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {liveClients.map(c => (
               <div
                 key={c.id}
-                className="item"
-                style={{ padding: '10px 14px', borderRadius: 'var(--r-sm)', background: 'var(--surface)' }}
-                onClick={() => setSelectedClientId(c.id)}
+                className="item interactive"
+                style={{ padding: '10px 12px', borderRadius: 'var(--r-sm)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                onClick={() => setSelectedClientMeta({ id: c.id, tab: 'workouts' })}
               >
-                <div className="grow">
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{c.name}</div>
-                  <div className="dim small" style={{ marginTop: 2, color: 'var(--acc)' }}>
-                    {c.live.name} · {c.live.setsDone}/{c.live.setsTotal} serie completate
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{c.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--acc)', marginTop: 2 }}>
+                    🏋️ {c.live.name} · {c.live.setsDone}/{c.live.setsTotal} serie
                   </div>
                 </div>
-                <span className="tag acc" style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px' }}>LIVE</span>
-                <Icon name="chevronRight" className="chev" />
+                <div className="row" style={{ gap: 6 }}>
+                  <button
+                    className="iconbtn"
+                    style={{ width: 32, height: 32, color: 'var(--acc)' }}
+                    onClick={(e) => { e.stopPropagation(); setChatClient(c) }}
+                    title="Scrivi all'atleta"
+                  >
+                    <Icon name="chat" />
+                  </button>
+                  <Icon name="chevronRight" className="chev" style={{ fontSize: 14 }} />
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Elenco Principale Clienti */}
-      <div className="row between" style={{ marginBottom: 10, alignItems: 'center' }}>
-        <h4 className="sec" style={{ margin: 0, fontWeight: 600, fontSize: 14, color: 'var(--label)' }}>I Tuoi Atleti</h4>
-        <button
-          className="iconbtn"
-          onClick={() => loadClients()}
-          aria-label="Ricarica"
-          style={{ width: 28, height: 28, fontSize: 14 }}
-        >
-          <Icon name="reset" />
-        </button>
+      {/* Search & Filter Bar */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ position: 'relative', marginBottom: 10 }}>
+          <input
+            type="text"
+            placeholder="🔍 Cerca atleta per nome..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              borderRadius: 'var(--r-sm)',
+              background: 'var(--surface)',
+              border: '1px solid var(--glass-border)',
+              color: 'var(--label)',
+              fontSize: 14
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              style={{
+                position: 'absolute',
+                right: 10,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--label-3)',
+                fontSize: 13,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Filter Pills */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            className={'chip' + (filterTab === 'all' ? ' on' : '')}
+            onClick={() => setFilterTab('all')}
+            style={{ fontSize: 12, padding: '5px 12px' }}
+          >
+            Tutti ({clients ? clients.length : 0})
+          </button>
+          <button
+            className={'chip' + (filterTab === 'live' ? ' on' : '')}
+            onClick={() => setFilterTab('live')}
+            style={{ fontSize: 12, padding: '5px 12px' }}
+          >
+            🔥 In Palestra ({liveClients.length})
+          </button>
+        </div>
       </div>
 
-      {clients && clients.length > 0 ? (
-        <div className="list" style={{ gap: 10 }}>
-          {clients.map(c => {
+      {/* Athlete Cards List */}
+      {filteredClients.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {filteredClients.map(c => {
             const initials = getInitials(c.name)
             return (
               <div
                 key={c.id}
-                className="item"
-                onClick={() => setSelectedClientId(c.id)}
+                className="card interactive"
+                onClick={() => setSelectedClientMeta({ id: c.id, tab: 'plan' })}
                 style={{
-                  padding: '12px 16px',
-                  borderRadius: 'var(--r-card)',
+                  padding: '14px 16px',
+                  marginBottom: 0,
                   border: '1px solid var(--glass-border)',
                   background: 'var(--surface)',
-                  transition: 'all 0.2s var(--spring)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 14
+                  borderRadius: 'var(--r-card)'
                 }}
               >
-                {/* Avatar Initial Circle */}
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, rgba(163, 230, 53, 0.22), rgba(34, 197, 94, 0.08))',
-                    border: '1.5px solid color-mix(in srgb, var(--acc) 40%, transparent)',
-                    color: 'var(--acc)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 700,
-                    fontSize: 15,
-                    flexShrink: 0,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                  }}
-                >
-                  {initials}
-                </div>
-
-                <div className="grow" style={{ minWidth: 0 }}>
-                  <div className="tt" style={{ fontWeight: 700, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {c.name}
-                    </span>
-                    {c.live && (
-                      <span
-                        style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: '50%',
-                          background: 'var(--green)',
-                          boxShadow: '0 0 8px var(--green)',
-                          animation: 'pulseGlow 2s infinite',
-                          display: 'inline-block',
-                          flexShrink: 0
-                        }}
-                        title="In allenamento adesso"
-                      />
-                    )}
-                    {c.disabled && <span className="tag" style={{ color: 'var(--red)', fontSize: 10 }}>Disattivato</span>}
-                  </div>
-
-                  <div className="ss" style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 3 }}>
-                    {c.live ? (
-                      <span style={{ color: 'var(--acc)', fontWeight: 600 }}>In allenamento: {c.live.name}</span>
-                    ) : c.lastWorkout ? (
-                      `Ultimo: ${c.lastWorkout.name || c.lastWorkout.title} (${fmtDate(c.lastWorkout.d || c.lastWorkout.date, true)})`
-                    ) : (
-                      'Nessun workout recente'
-                    )}
-                  </div>
-
-                  {/* Chips Metric */}
-                  <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                    <span
+                {/* Header row of Card: Avatar + Name + Live tag */}
+                <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 8 }}>
+                  <div className="row" style={{ gap: 12, alignItems: 'center' }}>
+                    <div
                       style={{
-                        fontSize: 11,
-                        background: 'var(--surface-2)',
-                        padding: '2px 7px',
-                        borderRadius: 6,
-                        color: 'var(--label-2)',
-                        fontWeight: 600
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, rgba(163, 230, 53, 0.22), rgba(34, 197, 94, 0.08))',
+                        border: '1.5px solid color-mix(in srgb, var(--acc) 40%, transparent)',
+                        color: 'var(--acc)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: 15,
+                        flexShrink: 0
                       }}
                     >
-                      🏋️ {c.workoutsCount || 0} sessioni
-                    </span>
-                    {c.totalVolume > 0 && (
-                      <span
-                        style={{
-                          fontSize: 11,
-                          background: 'var(--surface-2)',
-                          padding: '2px 7px',
-                          borderRadius: 6,
-                          color: 'var(--label-2)',
-                          fontWeight: 600
-                        }}
-                      >
-                        📊 {fmtVol(c.totalVolume, 'kg')}
-                      </span>
-                    )}
+                      {initials}
+                    </div>
+
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--label)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {c.name}
+                        {c.live && (
+                          <span
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              background: 'var(--green)',
+                              boxShadow: '0 0 8px var(--green)',
+                              animation: 'pulseGlow 1.5s infinite',
+                              display: 'inline-block'
+                            }}
+                            title="In allenamento adesso"
+                          />
+                        )}
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 2 }}>
+                        {c.live ? (
+                          <span style={{ color: 'var(--acc)', fontWeight: 600 }}>In allenamento: {c.live.name}</span>
+                        ) : c.lastWorkout ? (
+                          `Ultimo: ${c.lastWorkout.name || c.lastWorkout.title} (${fmtDate(c.lastWorkout.d || c.lastWorkout.date, true)})`
+                        ) : (
+                          'Nessun workout recente'
+                        )}
+                      </div>
+                    </div>
                   </div>
+
+                  <span className="tag" style={{ fontSize: 11 }}>
+                    {c.workoutsCount || 0} workout
+                  </span>
                 </div>
 
-                {/* Quick Chat Icon */}
-                <button
-                  className="iconbtn"
+                {/* Direct Action Buttons on Card */}
+                <div
+                  className="row"
                   style={{
-                    width: 38,
-                    height: 38,
-                    color: 'var(--acc)',
-                    background: 'color-mix(in srgb, var(--acc) 12%, transparent)',
-                    borderRadius: '50%',
-                    flexShrink: 0
+                    gap: 8,
+                    marginTop: 10,
+                    paddingTop: 10,
+                    borderTop: '1px solid var(--sep-op)'
                   }}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setChatClient(c)
-                  }}
-                  title={`Chat con ${c.name}`}
+                  onClick={e => e.stopPropagation()}
                 >
-                  <Icon name="chat" />
-                </button>
+                  <button
+                    onClick={() => setSelectedClientMeta({ id: c.id, tab: 'plan' })}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 5,
+                      padding: '8px 10px',
+                      borderRadius: 'var(--r-sm)',
+                      background: 'var(--surface-2)',
+                      color: 'var(--label)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Icon name="clipboard" style={{ fontSize: 13 }} />
+                    Scheda
+                  </button>
 
-                <Icon name="chevronRight" className="chev" style={{ opacity: 0.5 }} />
+                  <button
+                    onClick={() => setChatClient(c)}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 5,
+                      padding: '8px 10px',
+                      borderRadius: 'var(--r-sm)',
+                      background: 'var(--acc-soft)',
+                      color: 'var(--acc)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      border: '1px solid var(--acc-line)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Icon name="chat" style={{ fontSize: 13 }} />
+                    Chat
+                  </button>
+
+                  <button
+                    onClick={() => setSelectedClientMeta({ id: c.id, tab: 'workouts' })}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 5,
+                      padding: '8px 10px',
+                      borderRadius: 'var(--r-sm)',
+                      background: 'var(--surface-2)',
+                      color: 'var(--label-2)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Icon name="history" style={{ fontSize: 13 }} />
+                    Storico
+                  </button>
+                </div>
               </div>
             )
           })}
@@ -271,12 +367,12 @@ export default function ClientsView() {
       ) : (
         <div className="card empty" style={{ textAlign: 'center', padding: '36px 20px' }}>
           <div className="ico" style={{ fontSize: 36, color: 'var(--acc)', marginBottom: 12 }}><Icon name="person" /></div>
-          <h3 style={{ margin: '0 0 6px', fontSize: 18 }}>Nessun atleta registrato</h3>
+          <h3 style={{ margin: '0 0 6px', fontSize: 18 }}>Nessun atleta trovato</h3>
           <p className="dim small" style={{ margin: '0 0 18px', maxWidth: 300 }}>
-            Crea il tuo primo atleta e condividi il link di onboarding istantaneo.
+            {search ? 'Nessun risultato corrisponde alla ricerca.' : 'Crea il tuo primo atleta e condividi il link di onboarding.'}
           </p>
           <Button variant="primary" icon="plus" onClick={openNewClientModal}>
-            Aggiungi Primo Atleta
+            Aggiungi Atleta
           </Button>
         </div>
       )}

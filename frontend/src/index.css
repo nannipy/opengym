@@ -325,16 +325,12 @@ h4.sec{
 #tabbar button{
   flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
   color:var(--label-3);font-size:10px;font-weight:500;letter-spacing:.005em;padding-top:3px;
-  transition:color var(--fast);
+  transition:color var(--fast), transform var(--fast) var(--spring);
 }
-/* The inactive tint is semi-transparent, so wherever two strokes cross inside an
-   icon (the calendar's hangers over its frame, the divider's caps on its sides)
-   the alpha doubled up and the icon read as a stack of loose layers. Carrying the
-   fade on the <svg> instead of in the stroke colour flattens the icon first and
-   fades it as one shape — and it does that for every icon, not just this one. */
-#tabbar button .icn{font-size:25px;--icon-stroke:1.65;color:var(--label)}
-#tabbar button.on{color:var(--acc)}
-#tabbar button.on .icn{--icon-stroke:2;color:inherit;opacity:1}
+#tabbar button:active{transform:scale(.92)}
+#tabbar button .icn{font-size:24px;--icon-stroke:1.65;color:var(--label);transition:transform var(--fast) var(--spring)}
+#tabbar button.on{color:var(--acc);font-weight:600}
+#tabbar button.on .icn{--icon-stroke:2;color:inherit;opacity:1;transform:scale(1.06)}
 #tabbar button.start{margin-top:-24px}
 #tabbar button.start .cir{
   width:52px;height:52px;border-radius:50%;background:var(--acc);color:var(--on-acc);

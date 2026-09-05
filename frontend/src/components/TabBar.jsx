@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore.js'
 import { effectiveRoutine } from '../lib/history.js'
 import { todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
+import { openChatSheet } from './ChatSheet.jsx'
 import Icon from './Icon.jsx'
 
 export default function TabBar({ onStart }) {
@@ -12,6 +13,7 @@ export default function TabBar({ onStart }) {
   const user = useStore(s => s.user)
   const isGuest = useStore(s => s.isGuest())
   const isTrainer = useStore(s => s.isTrainer())
+  const isClient = useStore(s => s.isClient())
   if (!user && !isGuest) return null
   const cur = loc.pathname.split('/')[1] || (isTrainer ? 'trainer' : 'home')
   const on = k => cur === k || (cur === 'history' && k === 'stats') || (cur === 'settings' && (k === 'home' || k === 'settings'))
@@ -32,10 +34,27 @@ export default function TabBar({ onStart }) {
   if (isTrainer) {
     return (
       <nav id="tabbar">
-        <Tab k="trainer" icon="person" to="/trainer/clients" label="Clienti" />
+        <Tab k="trainer" icon="person" to="/trainer/clients" label="Atleti" />
         <Tab k="templates" icon="clipboard" to="/trainer/templates" label="Template" />
-        <Tab k="chat" icon="message" to="/trainer/chat" label="Chat" />
-        <Tab k="settings" icon="gear" to="/settings" label="Impostazioni" />
+        <Tab k="chat" icon="chat" to="/trainer/chat" label="Messaggi" />
+        <Tab k="settings" icon="gear" to="/settings" label="Profilo" />
+      </nav>
+    )
+  }
+
+  if (isClient) {
+    return (
+      <nav id="tabbar">
+        <Tab k="home" icon="dumbbell" to="/home" label="Oggi" />
+        <Tab k="plan" icon="clipboard" to="/plan" label="Scheda" />
+        <button className={'start' + (S.active ? ' rec' : '')} onClick={startWorkout}>
+          <span className="cir"><Icon name={S.active ? 'play' : 'dumbbell'} /></span>
+          <span>{S.active ? 'Riprendi' : 'Allenati'}</span>
+        </button>
+        <button onClick={() => openChatSheet()} aria-label="Chat con Coach">
+          <Icon name="chat" /><span>Coach</span>
+        </button>
+        <Tab k="stats" icon="chart" to="/stats" label="Progressi" />
       </nav>
     )
   }
