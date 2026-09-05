@@ -165,18 +165,25 @@ export function buildSets(S, cfg) {
   return sets
 }
 export function workoutVolume(w) {
+  if (!w) return 0
+  if (typeof w.vol === 'number') return w.vol
+  if (typeof w.volume === 'number') return w.volume
   let v = 0
-  w.entries.forEach(e => e.sets.forEach(s => { if (s.done) v += (s.w || 0) * (s.r || 0) }))
+  const entries = w.entries || w.items || []
+  entries.forEach(e => (e.sets || []).forEach(s => { if (s.done || s.done === undefined) v += (s.w || 0) * (s.r || 0) }))
   return v
 }
 export function setsDone(w) {
+  if (!w) return 0
+  if (typeof w.sets === 'number') return w.sets
   let n = 0
-  w.entries.forEach(e => e.sets.forEach(s => { if (s.done) n++ }))
+  const entries = w.entries || w.items || []
+  entries.forEach(e => (e.sets || []).forEach(s => { if (s.done || s.done === undefined) n++ }))
   return n
 }
 export function setsDoneActive(A) {
   let n = 0
-  if (A) A.entries.forEach(e => e.sets.forEach(s => { if (s.done) n++ }))
+  if (A && A.entries) A.entries.forEach(e => (e.sets || []).forEach(s => { if (s.done) n++ }))
   return n
 }
 export const lastBW = S => (S.bodyweight.length ? S.bodyweight[S.bodyweight.length - 1] : null)

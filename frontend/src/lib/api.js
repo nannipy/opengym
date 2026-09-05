@@ -175,14 +175,44 @@ async function handleMockOrSupabase(path, method, body) {
     const workouts = client.lastWorkout ? [
       {
         id: 'w1',
-        date: client.lastWorkout.date || client.lastWorkout.d,
-        title: client.lastWorkout.title || client.lastWorkout.name,
-        volume: client.lastWorkout.volume,
-        duration: client.lastWorkout.duration || 3400,
+        d: client.lastWorkout.d || client.lastWorkout.date || '2026-09-04',
+        date: client.lastWorkout.d || client.lastWorkout.date || '2026-09-04',
+        name: client.lastWorkout.name || client.lastWorkout.title || 'Giorno A - Spinta & Quad',
+        title: client.lastWorkout.name || client.lastWorkout.title || 'Giorno A - Spinta & Quad',
+        vol: client.lastWorkout.volume || client.lastWorkout.vol || 7850,
+        volume: client.lastWorkout.volume || client.lastWorkout.vol || 7850,
+        duration: client.lastWorkout.duration || 3420,
+        start: Date.now() - 3420000,
+        end: Date.now(),
         sets: client.lastWorkout.sets || 18,
+        entries: [
+          { id: '0025', sets: [{ w: 80, r: 8, rpe: 8, done: true }, { w: 80, r: 8, rpe: 8, done: true }, { w: 82.5, r: 6, rpe: 8.5, done: true }] },
+          { id: '0043', sets: [{ w: 100, r: 6, rpe: 8, done: true }, { w: 100, r: 6, rpe: 8, done: true }, { w: 105, r: 5, rpe: 9, done: true }] }
+        ],
         items: [
-          { id: '0025', sets: [{ w: 80, r: 8, rpe: 8 }, { w: 80, r: 8, rpe: 8 }, { w: 82.5, r: 6, rpe: 8.5 }] },
-          { id: '0043', sets: [{ w: 100, r: 6, rpe: 8 }, { w: 100, r: 6, rpe: 8 }, { w: 105, r: 5, rpe: 9 }] }
+          { id: '0025', sets: [{ w: 80, r: 8, rpe: 8, done: true }, { w: 80, r: 8, rpe: 8, done: true }, { w: 82.5, r: 6, rpe: 8.5, done: true }] },
+          { id: '0043', sets: [{ w: 100, r: 6, rpe: 8, done: true }, { w: 100, r: 6, rpe: 8, done: true }, { w: 105, r: 5, rpe: 9, done: true }] }
+        ]
+      },
+      {
+        id: 'w2',
+        d: '2026-09-02',
+        date: '2026-09-02',
+        name: 'Giorno B - Trazione & Femorali',
+        title: 'Giorno B - Trazione & Femorali',
+        vol: 6950,
+        volume: 6950,
+        duration: 3180,
+        start: Date.now() - 2 * 86400000 - 3180000,
+        end: Date.now() - 2 * 86400000,
+        sets: 16,
+        entries: [
+          { id: '0739', sets: [{ w: 110, r: 5, done: true }, { w: 110, r: 5, done: true }] },
+          { id: '0027', sets: [{ w: 70, r: 8, done: true }, { w: 70, r: 8, done: true }] }
+        ],
+        items: [
+          { id: '0739', sets: [{ w: 110, r: 5, done: true }, { w: 110, r: 5, done: true }] },
+          { id: '0027', sets: [{ w: 70, r: 8, done: true }, { w: 70, r: 8, done: true }] }
         ]
       }
     ] : []

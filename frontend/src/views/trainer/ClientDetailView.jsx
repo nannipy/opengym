@@ -5,6 +5,7 @@ import { useUI } from '../../store/useUI.js'
 import { fmtDate, fmtNum, fmtVol, fmtDur, DAYN } from '../../lib/format.js'
 import { workoutVolume, setsDone } from '../../lib/history.js'
 import { glyphOf } from '../../lib/glyphs.js'
+import { exOr } from '../../lib/exercises.js'
 import { Button } from '../../components/ui.jsx'
 import Icon from '../../components/Icon.jsx'
 import ClientPlanEditor from './ClientPlanEditor.jsx'
@@ -259,37 +260,52 @@ export default function ClientDetailView({ clientId, onBack }) {
       {activeTab === 'workouts' && (
         <div>
           {workouts.length ? (
-            <div className="list" style={{ gap: 8 }}>
-              {workouts.map(w => (
-                <div key={w.id} className="item" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '12px 14px' }}>
-                  <div className="row between" style={{ width: '100%' }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 16 }}>{w.name}</div>
-                      <div className="dim small">
-                        {fmtDate(w.d, true)} · {fmtDur((w.end || w.start) - w.start)} · {setsDone(w)} serie
-                        {w.prs?.length ? ` · ${w.prs.length} PR` : ''}
+            <div className="list" style={{ gap: 10 }}>
+              {workouts.map(w => {
+                const wName = w.name || w.title || 'Sessione Allenamento'
+                const wDate = w.d || w.date || todayISO()
+                const durMs = (w.end && w.start) ? (w.end - w.start) : (w.duration ? w.duration * 1000 : 3400000)
+                const numSets = setsDone(w)
+                const totalVol = w.vol ?? w.volume ?? workoutVolume(w)
+                const entries = w.entries || w.items || []
+
+                return (
+                  <div key={w.id} className="item" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '14px 16px', borderRadius: 'var(--r-card)', border: '1px solid var(--glass-border)' }}>
+                    <div className="row between" style={{ width: '100%' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>{wName}</div>
+                        <div className="dim small" style={{ marginTop: 2 }}>
+                          {fmtDate(wDate, true)} · ⏱️ {fmtDur(durMs)} · {numSets} serie
+                          {w.prs?.length ? ` · 🏆 ${w.prs.length} PR` : ''}
+                        </div>
+                      </div>
+                      <div className="tag acc" style={{ fontSize: 13, fontWeight: 700 }}>
+                        {fmtVol(totalVol, data?.unit || 'kg')}
                       </div>
                     </div>
-                    <div className="tag acc" style={{ fontSize: 13 }}>
-                      {fmtVol(w.vol ?? workoutVolume(w), data.unit)}
-                    </div>
-                  </div>
 
-                  {/* Dettaglio serie ed esercizi dell'allenamento */}
-                  {w.entries && w.entries.length > 0 && (
-                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: 'var(--hair) solid var(--sep)' }}>
-                      {w.entries.map((entry, eIdx) => (
-                        <div key={eIdx} className="row between small" style={{ padding: '3px 0' }}>
-                          <span className="capitalize" style={{ fontWeight: 500 }}>{entry.id}</span>
-                          <span className="muted">
-                            {(entry.sets || []).filter(s => s.done).map(s => `${s.w}kg × ${s.r}`).join(', ')}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+                    {/* Dettaglio serie ed esercizi dell'allenamento */}
+                    {entries.length > 0 && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: 'var(--hair) solid var(--sep)' }}>
+                        {entries.map((entry, eIdx) => {
+                          const fullEx = exOr(entry.id)
+                          const setsList = entry.sets || []
+                          return (
+                            <div key={eIdx} className="row between small" style={{ padding: '4px 0' }}>
+                              <span style={{ fontWeight: 600, color: 'var(--label)' }}>
+                                {fullEx.n || entry.id}
+                              </span>
+                              <span className="muted" style={{ fontWeight: 500 }}>
+                                {setsList.map(s => `${s.w || 0}kg × ${s.r || 0}`).join(', ') || `${setsList.length} serie`}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           ) : (
             <div className="card empty small">Nessun allenamento registrato da questo cliente.</div>
@@ -306,7 +322,7 @@ export default function ClientDetailView({ clientId, onBack }) {
               {bodyweight.slice().reverse().map((b, idx) => (
                 <div key={idx} className="item" style={{ padding: '8px 12px', minHeight: 40 }}>
                   <div className="grow">{fmtDate(b.d, true)}</div>
-                  <div style={{ fontWeight: 600 }}>{fmtNum(b.w)} {data.unit}</div>
+                  <div style={{ fontWeight: 600 }}>{fmtNum(b.w)} {data?.unit || 'kg'}</div>
                 </div>
               ))}
             </div>
