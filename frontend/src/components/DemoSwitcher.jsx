@@ -1,17 +1,13 @@
 import { useState } from 'react'
 import { useStore } from '../store/useStore.js'
-import { useNavigate } from 'react-router-dom'
 import { useUI } from '../store/useUI.js'
 import { isSupabaseConfigured } from '../lib/supabase.js'
-import Logo from './Logo.jsx'
 
 export default function DemoSwitcher() {
   const user = useStore(s => s.user)
-  const setUser = useStore(s => s.setUser)
   const isTrainer = useStore(s => s.isTrainer())
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
-  const nav = useNavigate()
   const toast = useUI(s => s.toast)
   const [expanded, setExpanded] = useState(false)
 
@@ -25,20 +21,6 @@ export default function DemoSwitcher() {
     const next = isLight ? 'dark' : 'light'
     update(s => { s.theme = next })
     toast(next === 'light' ? 'Tema Chiaro attivo ☀️' : 'Tema Scuro attivo 🌙')
-  }
-
-  const switchToTrainer = (e) => {
-    e.stopPropagation()
-    setUser({ id: 'trainer-demo', name: 'Coach Marco (PT)', role: 'trainer', admin: true })
-    nav('/trainer/clients')
-    toast('Passato alla vista: Personal Trainer 🏋️')
-  }
-
-  const switchToClient = (e) => {
-    e.stopPropagation()
-    setUser({ id: 'client-marco', name: 'Marco Rossi (Cliente)', role: 'client', trainerName: 'Coach Marco' })
-    nav('/home')
-    toast('Passato alla vista: Cliente 🏃')
   }
 
   return (
@@ -60,10 +42,10 @@ export default function DemoSwitcher() {
           WebkitBackdropFilter: 'blur(20px)',
           border: isLight ? '1px solid rgba(0, 0, 0, 0.08)' : '1px solid rgba(255, 255, 255, 0.12)',
           borderRadius: 999,
-          padding: '4px 6px 4px 10px',
+          padding: '4px 6px 4px 12px',
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
+          gap: 10,
           boxShadow: isLight
             ? '0 6px 24px -4px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04)'
             : '0 8px 32px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06)',
@@ -93,39 +75,7 @@ export default function DemoSwitcher() {
               animation: 'pulseGlow 2s infinite'
             }}
           />
-          <span>{isTrainer ? 'PT' : 'Cliente'}</span>
-        </div>
-
-        {/* Switch Profile Toggle */}
-        <div
-          style={{
-            display: 'inline-flex',
-            background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)',
-            borderRadius: 999,
-            padding: 2,
-            border: isLight ? '1px solid rgba(0,0,0,0.05)' : '1px solid rgba(255,255,255,0.05)'
-          }}
-        >
-          <button
-            onClick={isTrainer ? switchToClient : switchToTrainer}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--label)',
-              padding: '3px 9px',
-              fontSize: 11,
-              fontWeight: 600,
-              borderRadius: 999,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              transition: 'all 0.2s var(--spring)'
-            }}
-          >
-            <span>Passa a {isTrainer ? 'Cliente' : 'PT'}</span>
-            <span style={{ fontSize: 10, opacity: 0.7 }}>⇄</span>
-          </button>
+          <span>{isTrainer ? '🏋️ PT' : '🏃 Cliente'}</span>
         </div>
 
         {/* Theme Button */}
@@ -168,11 +118,11 @@ export default function DemoSwitcher() {
             color: 'var(--label-2)',
             boxShadow: '0 8px 30px rgba(0,0,0,0.25)',
             animation: 'slideDownFade 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-            minWidth: 190
+            minWidth: 200
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ fontWeight: 700, color: 'var(--label)' }}>Stato Sistema</span>
+            <span style={{ fontWeight: 700, color: 'var(--label)' }}>Stato Profilo</span>
             <span
               style={{
                 fontSize: 10,
@@ -187,7 +137,9 @@ export default function DemoSwitcher() {
             </span>
           </div>
           <div style={{ lineHeight: 1.4 }}>
-            {isCloud ? 'Sincronizzazione Supabase Realtime attiva su entrambi i telefoni.' : 'Modalità demo locale.'}
+            {isTrainer ? 'Connesso come Personal Trainer (/pt).' : 'Connesso come Atleta (/cliente).'}
+            <br />
+            {isCloud ? 'Sincronizzazione Supabase Realtime attiva.' : 'Dati in memoria locale.'}
           </div>
         </div>
       )}
