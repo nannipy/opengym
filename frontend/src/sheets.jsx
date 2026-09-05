@@ -931,7 +931,14 @@ function doFinishWorkout() {
     // `target` (what the session prescribed) is kept alongside the sets: without it a
     // finished workout cannot say whether it hit its reps, and a timed session reads back
     // as "0 reps". It is what the progression engine works from.
-    entries: A.entries.map(e => ({ id: e.id, sets: e.sets, topW: e.topW || null, target: e.target || null })).filter(e => e.sets.some(s => s.done)),
+    entries: A.entries.map(e => ({
+      id: e.id,
+      sets: e.sets,
+      topW: e.topW || null,
+      target: e.target || null,
+      swapped: e.swapped || null,
+      addedInSession: !!e.addedInSession
+    })).filter(e => e.sets.some(s => s.done)),
     prs
   }
   w.vol = workoutVolume(w)

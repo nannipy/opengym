@@ -55,7 +55,21 @@ function Elapsed({ start }) {
 }
 
 /* ---------- one exercise block (reps: weight×reps · time: a held duration · cardio: duration+speed) ---------- */
-function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemoveSet, onStartTimed, onSwapEx }) {
+function ExerciseBlock({
+  entryIdx,
+  compact,
+  onToggle,
+  onField,
+  onAddSet,
+  onRemoveSet,
+  onStartTimed,
+  onSwapEx,
+  onMoveUp,
+  onMoveDown,
+  onRemoveEx,
+  canMoveUp,
+  canMoveDown
+}) {
   const S = useStore(s => s.S)
   const isClient = useStore(s => s.isClient())
   const working = useUI(s => s.work)
@@ -104,17 +118,55 @@ function ExerciseBlock({ entryIdx, compact, onToggle, onField, onAddSet, onRemov
     <Media ex={ex} key={entry.id} compact={compact} minimizable />
     <div className="row between" style={{ marginBottom: 6 }}>
       <div style={{ fontSize: compact ? 17 : 20, fontWeight: 600, letterSpacing: '-.02em', textTransform: 'capitalize', lineHeight: 1.2 }}>{ex.n}</div>
-      <div className="row" style={{ gap: 6 }}>
+      <div className="row" style={{ gap: 4 }}>
+        {canMoveUp && (
+          <button
+            className="iconbtn"
+            title={t('Sposta su')}
+            aria-label={t('Sposta su')}
+            style={{ width: 32, height: 32, borderRadius: 8, fontSize: 13 }}
+            onClick={() => onMoveUp && onMoveUp(entryIdx)}
+          >
+            <Icon name="arrowUp" />
+          </button>
+        )}
+        {canMoveDown && (
+          <button
+            className="iconbtn"
+            title={t('Sposta giù')}
+            aria-label={t('Sposta giù')}
+            style={{ width: 32, height: 32, borderRadius: 8, fontSize: 13 }}
+            onClick={() => onMoveDown && onMoveDown(entryIdx)}
+          >
+            <Icon name="arrowDown" />
+          </button>
+        )}
         <button
           className="iconbtn"
-          title={t('Sostituisci esercizio (es. macchinario occupato)')}
+          title={t('Sostituisci macchinario o variante')}
           aria-label={t('Sostituisci esercizio')}
-          style={{ width: 34, height: 34, color: 'var(--acc)', background: 'color-mix(in srgb,var(--acc) 14%,transparent)', borderRadius: 9 }}
+          style={{ width: 32, height: 32, color: 'var(--acc)', background: 'color-mix(in srgb,var(--acc) 14%,transparent)', borderRadius: 8, fontSize: 13 }}
           onClick={() => onSwapEx && onSwapEx(entryIdx)}
         >
           <Icon name="shuffle" />
         </button>
-        <button className="iconbtn" aria-label={t('Details')} onClick={() => exerciseDetailSheet(ex)}><Icon name="info" /></button>
+        <button
+          className="iconbtn"
+          title={t('Rimuovi dalla sessione')}
+          aria-label={t('Rimuovi esercizio')}
+          style={{ width: 32, height: 32, color: 'var(--red)', background: 'color-mix(in srgb,var(--red) 12%,transparent)', borderRadius: 8, fontSize: 13 }}
+          onClick={() => onRemoveEx && onRemoveEx(entryIdx)}
+        >
+          <Icon name="trash" />
+        </button>
+        <button
+          className="iconbtn"
+          aria-label={t('Details')}
+          style={{ width: 32, height: 32, borderRadius: 8, fontSize: 13 }}
+          onClick={() => exerciseDetailSheet(ex)}
+        >
+          <Icon name="info" />
+        </button>
       </div>
     </div>
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -293,6 +345,40 @@ function ActiveWorkout() {
     })
   }
 
+  const moveExercise = (fromIdx, dir) => {
+    const toIdx = fromIdx + dir
+    if (toIdx < 0 || toIdx >= A.entries.length) return
+    update(s => {
+      const arr = s.active.entries
+      const temp = arr[fromIdx]
+      arr[fromIdx] = arr[toIdx]
+      arr[toIdx] = temp
+      s.active.cur = toIdx
+    })
+    useUI.getState().toast(t('Ordine esercizi aggiornato'))
+  }
+
+  const removeExercise = idx => {
+    if (A.entries.length <= 1) {
+      useUI.getState().toast(t('Non puoi rimuovere l\'unico esercizio della sessione'))
+      return
+    }
+    const exName = exOr(A.entries[idx].id).n
+    confirmSheet({
+      title: t('Rimuovi esercizio?'),
+      message: t('Vuoi rimuovere "{0}" da questo allenamento?', exName),
+      confirmText: t('Rimuovi'),
+      danger: true,
+      onConfirm: () => {
+        update(s => {
+          s.active.entries.splice(idx, 1)
+          s.active.cur = Math.min(s.active.cur, s.active.entries.length - 1)
+        })
+        useUI.getState().toast(t('Esercizio rimosso'))
+      }
+    })
+  }
+
   const isClient = useStore(s => s.isClient())
 
   return <div className="narrow">
@@ -323,12 +409,38 @@ function ActiveWorkout() {
           <div className="ss-hd"><Icon name="link" />{t('Superset · do these back-to-back, rest after both')}</div>
           {unit.map((idx, k) => <div key={idx} className="ss-ex">
             {k > 0 && <div className="ss-amp">+</div>}
-            <ExerciseBlock entryIdx={idx} compact
-              onToggle={i => toggle(idx, i)} onField={(i, f, v) => setField(idx, i, f, v)} onAddSet={() => addSet(idx)} onRemoveSet={() => removeSet(idx)} onStartTimed={i => startTimed(idx, i)} onSwapEx={swapExercise} />
+            <ExerciseBlock
+              entryIdx={idx}
+              compact
+              onToggle={i => toggle(idx, i)}
+              onField={(i, f, v) => setField(idx, i, f, v)}
+              onAddSet={() => addSet(idx)}
+              onRemoveSet={() => removeSet(idx)}
+              onStartTimed={i => startTimed(idx, i)}
+              onSwapEx={swapExercise}
+              onMoveUp={() => moveExercise(idx, -1)}
+              onMoveDown={() => moveExercise(idx, 1)}
+              onRemoveEx={() => removeExercise(idx)}
+              canMoveUp={idx > 0}
+              canMoveDown={idx < A.entries.length - 1}
+            />
           </div>)}
         </div>
       ) : (
-        <ExerciseBlock entryIdx={cur} onToggle={i => toggle(cur, i)} onField={(i, f, v) => setField(cur, i, f, v)} onAddSet={() => addSet(cur)} onRemoveSet={() => removeSet(cur)} onStartTimed={i => startTimed(cur, i)} onSwapEx={swapExercise} />
+        <ExerciseBlock
+          entryIdx={cur}
+          onToggle={i => toggle(cur, i)}
+          onField={(i, f, v) => setField(cur, i, f, v)}
+          onAddSet={() => addSet(cur)}
+          onRemoveSet={() => removeSet(cur)}
+          onStartTimed={i => startTimed(cur, i)}
+          onSwapEx={swapExercise}
+          onMoveUp={() => moveExercise(cur, -1)}
+          onMoveDown={() => moveExercise(cur, 1)}
+          onRemoveEx={() => removeExercise(cur)}
+          canMoveUp={cur > 0}
+          canMoveDown={cur < A.entries.length - 1}
+        />
       )}
     </> : <div className="empty"><div className="ico"><Icon name="shuffle" /></div>{t('Freestyle workout — add your first exercise.')}</div>}
 
@@ -337,13 +449,21 @@ function ActiveWorkout() {
       <Button icon="chevronLeft" disabled={unitIdx <= 0} onClick={() => update(s => { s.active.cur = units[unitIdx - 1][0] })}>{t('Prev')}</Button>
       <Button trailingIcon="chevronRight" disabled={unitIdx < 0 || unitIdx >= units.length - 1} onClick={() => update(s => { s.active.cur = units[unitIdx + 1][0] })}>{t('Next')}</Button>
     </div>
-    <div style={{ height: 10 }} />
-    <Button onClick={() => exercisePicker(ex => exConfigSheet(ex, null, cfg => update(s => {
-      const full = { ...cfg, id: ex.id }
-      const plan = nextPrescription(s, full, s.routines.find(r => r.id === s.active.routineId))
-      s.active.entries.push({ id: ex.id, target: { ...cfg }, plan, addedInSession: true, sets: applyPrescription(buildSets(s, full), plan) })
-      s.active.cur = s.active.entries.length - 1
-    }), null, S.routines.find(r => r.id === A.routineId)), { title: t('Aggiungi esercizio complementare') })} icon="plus">{t('Aggiungi esercizio complementare')}</Button>
+    <div style={{ height: 12 }} />
+    <Button
+      variant="tinted"
+      icon="plus"
+      onClick={() => exercisePicker(ex => exConfigSheet(ex, null, cfg => update(s => {
+        const full = { ...cfg, id: ex.id }
+        const plan = nextPrescription(s, full, s.routines.find(r => r.id === s.active.routineId))
+        s.active.entries.push({ id: ex.id, target: { ...cfg }, plan, addedInSession: true, sets: applyPrescription(buildSets(s, full), plan) })
+        s.active.cur = s.active.entries.length - 1
+        useUI.getState().toast(t('Esercizio aggiunto: {0}', ex.n))
+      }), null, S.routines.find(r => r.id === A.routineId)), { title: t('Aggiungi esercizio alla sessione') })}
+      style={{ fontWeight: 700, padding: '14px', border: '1.5px dashed var(--acc-line)', borderRadius: 'var(--r)' }}
+    >
+      {t('+ Aggiungi Esercizio alla Sessione')}
+    </Button>
     <div style={{ height: 10 }} />
     {(() => {
       const exDone = A.entries.filter(e => e.sets.length && e.sets.every(s => s.done)).length

@@ -188,7 +188,7 @@ export default function ClientsView() {
         </div>
 
         {/* Filter Pills */}
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button
             className={'chip' + (filterTab === 'all' ? ' on' : '')}
             onClick={() => setFilterTab('all')}
@@ -197,17 +197,144 @@ export default function ClientsView() {
             Tutti ({clients ? clients.length : 0})
           </button>
           <button
-            className={'chip' + (filterTab === 'live' ? ' on' : '')}
-            onClick={() => setFilterTab('live')}
+            className={'chip' + (filterTab === 'debrief' ? ' on' : '')}
+            onClick={() => setFilterTab('debrief')}
             style={{ fontSize: 12, padding: '5px 12px' }}
           >
-            🔥 In Palestra ({liveClients.length})
+            📋 Debriefing Post-Workout ({(clients || []).filter(c => c.lastWorkout).length})
           </button>
+          {liveClients.length > 0 && (
+            <button
+              className={'chip' + (filterTab === 'live' ? ' on' : '')}
+              onClick={() => setFilterTab('live')}
+              style={{ fontSize: 12, padding: '5px 12px' }}
+            >
+              🔥 In Palestra ({liveClients.length})
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Athlete Cards List */}
-      {filteredClients.length > 0 ? (
+      {/* Debriefing Feed Mode */}
+      {filterTab === 'debrief' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {filteredClients.filter(c => c.lastWorkout).length > 0 ? (
+            filteredClients.filter(c => c.lastWorkout).map(c => {
+              const w = c.lastWorkout
+              const initials = getInitials(c.name)
+              const entries = w.entries || []
+              const swappedCount = entries.filter(e => e.swapped).length
+              const addedCount = entries.filter(e => e.addedInSession).length
+
+              return (
+                <div
+                  key={c.id}
+                  className="card"
+                  style={{
+                    padding: '16px',
+                    marginBottom: 0,
+                    border: '1px solid var(--acc-line)',
+                    background: 'var(--surface)',
+                    borderRadius: 'var(--r-card)',
+                    boxShadow: 'var(--shadow-card)'
+                  }}
+                >
+                  <div className="row between" style={{ alignItems: 'flex-start', marginBottom: 10 }}>
+                    <div className="row" style={{ gap: 10, alignItems: 'center' }}>
+                      <div
+                        style={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: '50%',
+                          background: 'var(--acc-soft)',
+                          color: 'var(--acc)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 700,
+                          fontSize: 14
+                        }}
+                      >
+                        {initials}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>{c.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--label-2)' }}>
+                          Sessione completata · {fmtDate(w.d || w.date, true)}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="tag acc" style={{ fontWeight: 700, fontSize: 11 }}>
+                      Da Revisionare
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      background: 'var(--surface-2)',
+                      borderRadius: 'var(--r-sm)',
+                      padding: '10px 12px',
+                      marginBottom: 12
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
+                      🏋️ {w.name || w.title || 'Allenamento'}
+                    </div>
+                    <div className="row" style={{ gap: 12, fontSize: 12, color: 'var(--label-2)', flexWrap: 'wrap' }}>
+                      {w.vol > 0 && <span>📊 Volume: <strong>{fmtVol(w.vol, 'kg')}</strong></span>}
+                      {entries.length > 0 && <span>🎯 {entries.length} esercizi</span>}
+                    </div>
+
+                    {/* Athlete in-workout adaptations */}
+                    {(swappedCount > 0 || addedCount > 0) && (
+                      <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {swappedCount > 0 && (
+                          <span className="tag" style={{ background: 'color-mix(in srgb,var(--acc) 18%,transparent)', color: 'var(--acc)', fontSize: 11 }}>
+                            🔄 {swappedCount} esercizio sostituito
+                          </span>
+                        )}
+                        {addedCount > 0 && (
+                          <span className="tag" style={{ background: 'color-mix(in srgb,var(--orange) 18%,transparent)', color: 'var(--orange)', fontSize: 11 }}>
+                            ➕ {addedCount} complementare aggiunto
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quick feedback button */}
+                  <div className="row" style={{ gap: 8 }}>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      icon="chat"
+                      onClick={() => setChatClient(c)}
+                      style={{ flex: 1.2, fontWeight: 700 }}
+                    >
+                      Invia Feedback al Cliente 💬
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon="history"
+                      onClick={() => setSelectedClientMeta({ id: c.id, tab: 'workouts' })}
+                      style={{ flex: 1 }}
+                    >
+                      Dettagli Sessione
+                    </Button>
+                  </div>
+                </div>
+              )
+            })
+          ) : (
+            <div className="card empty" style={{ textAlign: 'center', padding: '30px 20px' }}>
+              <Icon name="check" style={{ fontSize: 32, color: 'var(--acc)', marginBottom: 8 }} />
+              <h3>Nessun debriefing in sospeso</h3>
+              <p className="dim small" style={{ margin: 0 }}>Tutti gli allenamenti completati sono stati esaminati.</p>
+            </div>
+          )}
+        </div>
+      ) : filteredClients.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filteredClients.map(c => {
             const initials = getInitials(c.name)
