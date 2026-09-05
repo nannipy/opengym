@@ -31,8 +31,6 @@ import ClientsView from './views/trainer/ClientsView.jsx'
 import TemplatesView from './views/trainer/TemplatesView.jsx'
 import TrainerChatListView from './views/trainer/TrainerChatListView.jsx'
 
-import DemoSwitcher from './components/DemoSwitcher.jsx'
-
 bindUI(useUI)   // lets the shared controls open sheets without importing the store at module scope
 
 function applyPrefs(theme, accent) {
@@ -112,7 +110,6 @@ function Shell() {
           )}
         </ErrorBoundary>
       </div>
-      <DemoSwitcher />
       <TabBar onStart={startFlow} />
       <RestTimer />
       <Modals />

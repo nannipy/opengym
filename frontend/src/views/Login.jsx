@@ -100,34 +100,8 @@ export default function Login() {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
   }
-  const S = useStore(s => s.S)
-  const update = useStore(s => s.update)
-  const isLight = S.theme === 'light'
-  const toggleTheme = () => {
-    update(s => { s.theme = isLight ? 'dark' : 'light' })
-  }
 
   const head = <>
-    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: -20, paddingRight: 4 }}>
-      <button
-        onClick={toggleTheme}
-        style={{
-          background: 'var(--surface-2)',
-          border: '1px solid var(--sep-op)',
-          borderRadius: 16,
-          padding: '4px 10px',
-          fontSize: 12,
-          fontWeight: 600,
-          color: 'var(--label-2)',
-          cursor: 'pointer',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 5
-        }}
-      >
-        <span>{isLight ? '🌙 Tema Scuro' : '☀️ Tema Chiaro'}</span>
-      </button>
-    </div>
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '24px 0 12px' }}>
       <Logo size="xl" showText={true} badge="PRO" />
       <div style={{ fontSize: 13, color: 'var(--label-2)', marginTop: 8, letterSpacing: '0.02em' }}>
